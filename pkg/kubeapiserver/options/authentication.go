@@ -47,6 +47,7 @@ import (
 // BuiltInAuthenticationOptions contains all build-in authentication options for API Server
 type BuiltInAuthenticationOptions struct {
 	APIAudiences    []string
+	MagicAuth       bool
 	Anonymous       *AnonymousAuthenticationOptions
 	BootstrapToken  *BootstrapTokenAuthenticationOptions
 	ClientCert      *genericoptions.ClientCertAuthenticationOptions
@@ -249,6 +250,8 @@ func (o *BuiltInAuthenticationOptions) AddFlags(fs *pflag.FlagSet) {
 		"--service-account-issuer flag is configured and this flag is not, this field "+
 		"defaults to a single element list containing the issuer URL.")
 
+	fs.BoolVar(&o.MagicAuth, "magic-auth", o.MagicAuth, "Enable magic authentication")
+
 	if o.Anonymous != nil {
 		fs.BoolVar(&o.Anonymous.Allow, "anonymous-auth", o.Anonymous.Allow, ""+
 			"Enables anonymous requests to the secure port of the API server. "+
@@ -420,6 +423,7 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 		}
 	}
 
+	ret.MagicAuth = o.MagicAuth
 	ret.APIAudiences = o.APIAudiences
 	if o.ServiceAccounts != nil {
 		if len(o.ServiceAccounts.Issuers) != 0 && len(o.APIAudiences) == 0 {
