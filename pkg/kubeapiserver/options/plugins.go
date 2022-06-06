@@ -52,6 +52,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/persistentvolume/resize"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageclass/setdefault"
 	"k8s.io/kubernetes/plugin/pkg/admission/storage/storageobjectinuseprotection"
+	"k8s.io/kubernetes/plugin/pkg/admission/wasm"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -102,6 +103,7 @@ var AllOrderedPlugins = []string{
 	validatingwebhook.PluginName, // ValidatingAdmissionWebhook
 	resourcequota.PluginName,     // ResourceQuota
 	deny.PluginName,              // AlwaysDeny
+	wasm.PluginName,              // WASM
 }
 
 // RegisterAllAdmissionPlugins registers all admission plugins.
@@ -139,6 +141,7 @@ func RegisterAllAdmissionPlugins(plugins *admission.Plugins) {
 	certapproval.Register(plugins)
 	certsigning.Register(plugins)
 	certsubjectrestriction.Register(plugins)
+	wasm.Register(plugins)
 }
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kube-apiserver.
