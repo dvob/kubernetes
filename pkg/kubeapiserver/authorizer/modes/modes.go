@@ -31,10 +31,12 @@ const (
 	ModeRBAC string = "RBAC"
 	// ModeNode is an authorization mode that authorizes API requests made by kubelets.
 	ModeNode string = "Node"
+	// ModeWASM is an authorization mode that authorizes API requests using WASM modules.
+	ModeWASM string = "WASM"
 )
 
 // AuthorizationModeChoices is the list of supported authorization modes
-var AuthorizationModeChoices = []string{ModeAlwaysAllow, ModeAlwaysDeny, ModeABAC, ModeWebhook, ModeRBAC, ModeNode}
+var AuthorizationModeChoices = []string{ModeAlwaysAllow, ModeAlwaysDeny, ModeABAC, ModeWebhook, ModeRBAC, ModeNode, ModeWASM}
 
 // IsValidAuthorizationMode returns true if the given authorization mode is a valid one for the apiserver
 func IsValidAuthorizationMode(authzMode string) bool {

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/authorization/union"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
+	"k8s.io/apiserver/plugin/pkg/authorizer/wasm"
 	"k8s.io/apiserver/plugin/pkg/authorizer/webhook"
 	versionedinformers "k8s.io/client-go/informers"
 	"k8s.io/kubernetes/pkg/auth/authorizer/abac"
@@ -139,6 +140,10 @@ func (config Config) New() (authorizer.Authorizer, authorizer.RuleResolver, erro
 			)
 			authorizers = append(authorizers, rbacAuthorizer)
 			ruleResolvers = append(ruleResolvers, rbacAuthorizer)
+		case modes.ModeWASM:
+			wasmAuthorizer := wasm.New()
+			authorizers = append(authorizers, wasmAuthorizer)
+			ruleResolvers = append(ruleResolvers, wasmAuthorizer)
 		default:
 			return nil, nil, fmt.Errorf("unknown authorization mode %s specified", authorizationMode)
 		}
