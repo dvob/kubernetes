@@ -7,8 +7,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const magicValue = "magic42"
-
 var _ authenticator.Token = &WASMAuthenticator{}
 
 type WASMAuthenticator struct{}
@@ -18,16 +16,24 @@ func New() *WASMAuthenticator {
 }
 
 func (a *WASMAuthenticator) AuthenticateToken(ctx context.Context, value string) (*authenticator.Response, bool, error) {
-	if value != magicValue {
-		// not authentiacted
-		return nil, false, nil
+	if value == "admin42" {
+		user := &user.DefaultInfo{
+			Name: "magic-admin",
+			UID:  "242",
+			Groups: []string{
+				"system:masters",
+			},
+		}
+		return &authenticator.Response{User: user}, true, nil
 	}
-	user := &user.DefaultInfo{
-		Name: "magic-admin",
-		UID:  "42",
-		Groups: []string{
-			"system:masters",
-		},
+	if value == "user42" {
+		user := &user.DefaultInfo{
+			Name:   "magic-user",
+			UID:    "142",
+			Groups: []string{"user"},
+		}
+		return &authenticator.Response{User: user}, true, nil
 	}
-	return &authenticator.Response{User: user}, true, nil
+	// not authentiacted
+	return nil, false, nil
 }
