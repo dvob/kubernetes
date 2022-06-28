@@ -54,6 +54,7 @@ type BuiltInAuthenticationOptions struct {
 	RequestHeader   *genericoptions.RequestHeaderAuthenticationOptions
 	ServiceAccounts *ServiceAccountAuthenticationOptions
 	TokenFile       *TokenFileAuthenticationOptions
+	WASMModuleFile  string
 	WebHook         *WebHookAuthenticationOptions
 
 	TokenSuccessCacheTTL time.Duration
@@ -243,6 +244,9 @@ func (o *BuiltInAuthenticationOptions) Validate() []error {
 
 // AddFlags returns flags of authentication for a API Server
 func (o *BuiltInAuthenticationOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.WASMModuleFile, "wasm-module-file", o.WASMModuleFile, ""+
+		"Path to the WASM module which is used for authentication")
+
 	fs.StringSliceVar(&o.APIAudiences, "api-audiences", o.APIAudiences, ""+
 		"Identifiers of the API. The service account token authenticator will validate that "+
 		"tokens used against the API are bound to at least one of these audiences. If the "+
@@ -383,6 +387,8 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 		TokenSuccessCacheTTL: o.TokenSuccessCacheTTL,
 		TokenFailureCacheTTL: o.TokenFailureCacheTTL,
 	}
+
+	ret.WASMModuleFile = o.WASMModuleFile
 
 	if o.Anonymous != nil {
 		ret.Anonymous = o.Anonymous.Allow

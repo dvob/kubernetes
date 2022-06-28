@@ -18,6 +18,7 @@ package authenticator
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
@@ -43,6 +44,7 @@ import (
 	// Initialize all known client auth plugins.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/util/keyutil"
+	"k8s.io/kubernetes/pkg/auth/authorizer/wasm"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 )
 
@@ -65,6 +67,7 @@ type Config struct {
 	ServiceAccountLookup        bool
 	ServiceAccountIssuers       []string
 	APIAudiences                authenticator.Audiences
+	WASMModuleFile              string
 	WebhookTokenAuthnConfigFile string
 	WebhookTokenAuthnVersion    string
 	WebhookTokenAuthnCacheTTL   time.Duration
@@ -184,6 +187,15 @@ func (config Config) New() (authenticator.Request, *spec.SecurityDefinitions, er
 		}
 
 		tokenAuthenticators = append(tokenAuthenticators, webhookTokenAuth)
+	}
+
+	if config.WASMModuleFile != "" {
+		wasmAuthenticator, err := wasm.New(config.WASMModuleFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to initialize WASM authenticator: %w", err)
+		}
+
+		tokenAuthenticators = append(tokenAuthenticators, wasmAuthenticator)
 	}
 
 	if len(tokenAuthenticators) > 0 {
