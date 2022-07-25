@@ -40,6 +40,8 @@ import (
 	"k8s.io/apiserver/plugin/pkg/authenticator/token/webhook"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
+	"github.com/dvob/k8s-wasm"
+
 	// Initialize all known client auth plugins.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/util/keyutil"
@@ -72,6 +74,8 @@ type Config struct {
 	// This allows us to configure the sleep time at each iteration and the maximum number of retries allowed
 	// before we fail the webhook call in order to limit the fan out that ensues when the system is degraded.
 	WebhookRetryBackoff *wait.Backoff
+
+	WASMTokenAuthnConfigFile string
 
 	TokenSuccessCacheTTL time.Duration
 	TokenFailureCacheTTL time.Duration
@@ -184,6 +188,17 @@ func (config Config) New() (authenticator.Request, *spec.SecurityDefinitions, er
 		}
 
 		tokenAuthenticators = append(tokenAuthenticators, webhookTokenAuth)
+	}
+
+	if len(config.WASMTokenAuthnConfigFile) > 0 {
+		wasmAuthConfig := &wasm.AuthenticationModuleConfig{
+			File: config.WASMTokenAuthnConfigFile,
+		}
+		wasmAuth, err := wasm.NewAuthenticatorWithConfig(wasmAuthConfig)
+		if err != nil {
+			return nil, nil, err
+		}
+		tokenAuthenticators = append(tokenAuthenticators, wasmAuth)
 	}
 
 	if len(tokenAuthenticators) > 0 {
