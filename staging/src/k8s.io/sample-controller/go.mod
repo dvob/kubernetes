@@ -5,6 +5,8 @@ module k8s.io/sample-controller
 go 1.16
 
 require (
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	google.golang.org/appengine v1.6.7 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v0.0.0
