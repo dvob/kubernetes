@@ -56,6 +56,8 @@ type BuiltInAuthenticationOptions struct {
 	TokenFile       *TokenFileAuthenticationOptions
 	WebHook         *WebHookAuthenticationOptions
 
+	EnableExampleAuth bool
+
 	TokenSuccessCacheTTL time.Duration
 	TokenFailureCacheTTL time.Duration
 }
@@ -243,6 +245,9 @@ func (o *BuiltInAuthenticationOptions) Validate() []error {
 
 // AddFlags returns flags of authentication for a API Server
 func (o *BuiltInAuthenticationOptions) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&o.EnableExampleAuth, "enable-example-auth", o.EnableExampleAuth, ""+
+		"Enable example authenticator")
+
 	fs.StringSliceVar(&o.APIAudiences, "api-audiences", o.APIAudiences, ""+
 		"Identifiers of the API. The service account token authenticator will validate that "+
 		"tokens used against the API are bound to at least one of these audiences. If the "+
@@ -449,6 +454,8 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 			}
 		}
 	}
+
+	ret.EnableExampleAuth = o.EnableExampleAuth
 
 	return ret, nil
 }

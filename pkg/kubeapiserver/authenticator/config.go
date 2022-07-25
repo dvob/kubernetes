@@ -40,6 +40,8 @@ import (
 	"k8s.io/apiserver/plugin/pkg/authenticator/token/webhook"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
+	"github.com/dvob/k8s-authn-example"
+
 	// Initialize all known client auth plugins.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/util/keyutil"
@@ -72,6 +74,8 @@ type Config struct {
 	// This allows us to configure the sleep time at each iteration and the maximum number of retries allowed
 	// before we fail the webhook call in order to limit the fan out that ensues when the system is degraded.
 	WebhookRetryBackoff *wait.Backoff
+
+	EnableExampleAuth bool
 
 	TokenSuccessCacheTTL time.Duration
 	TokenFailureCacheTTL time.Duration
@@ -184,6 +188,14 @@ func (config Config) New() (authenticator.Request, *spec.SecurityDefinitions, er
 		}
 
 		tokenAuthenticators = append(tokenAuthenticators, webhookTokenAuth)
+	}
+
+	if config.EnableExampleAuth {
+		exampleAuth, err := auth.NewAuthenticator()
+		if err != nil {
+			return nil, nil, err
+		}
+		tokenAuthenticators = append(tokenAuthenticators, exampleAuth)
 	}
 
 	if len(tokenAuthenticators) > 0 {
