@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	authnTestModuleFile = "testdata/test-authn/target/wasm32-wasi/debug/test_authn.wasm"
+	authnTestModuleFile = "testdata/target/wasm32-wasi/debug/test_authn.wasm"
 	testToken           = "my-test-token"
 	testUser            = "my-user"
 	testUID             = "1337"

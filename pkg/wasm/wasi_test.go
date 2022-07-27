@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	wasiTestModuleFile = "testdata/test-wasi/target/wasm32-wasi/debug/test_wasi.wasm"
+	wasiTestModuleFile = "testdata/target/wasm32-wasi/debug/test_wasi.wasm"
 	// the function my_function writes the following outputs
 	expectedStdout = "stdout output\n"
 	expectedStderr = "stderr output\n"
