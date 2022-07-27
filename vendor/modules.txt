@@ -703,6 +703,33 @@ github.com/stretchr/testify/mock
 github.com/stretchr/testify/require
 # github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 => github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 github.com/syndtr/gocapability/capability
+# github.com/tetratelabs/wazero v0.0.0-20220719035537-0da1af2d51a7 => github.com/tetratelabs/wazero v0.0.0-20220719035537-0da1af2d51a7
+## explicit
+github.com/tetratelabs/wazero
+github.com/tetratelabs/wazero/api
+github.com/tetratelabs/wazero/experimental
+github.com/tetratelabs/wazero/internal/asm
+github.com/tetratelabs/wazero/internal/asm/amd64
+github.com/tetratelabs/wazero/internal/asm/arm64
+github.com/tetratelabs/wazero/internal/buildoptions
+github.com/tetratelabs/wazero/internal/engine/compiler
+github.com/tetratelabs/wazero/internal/engine/interpreter
+github.com/tetratelabs/wazero/internal/ieee754
+github.com/tetratelabs/wazero/internal/leb128
+github.com/tetratelabs/wazero/internal/moremath
+github.com/tetratelabs/wazero/internal/platform
+github.com/tetratelabs/wazero/internal/sys
+github.com/tetratelabs/wazero/internal/testing/require
+github.com/tetratelabs/wazero/internal/u32
+github.com/tetratelabs/wazero/internal/u64
+github.com/tetratelabs/wazero/internal/wasi_snapshot_preview1
+github.com/tetratelabs/wazero/internal/wasm
+github.com/tetratelabs/wazero/internal/wasm/binary
+github.com/tetratelabs/wazero/internal/wasmdebug
+github.com/tetratelabs/wazero/internal/wasmruntime
+github.com/tetratelabs/wazero/internal/wazeroir
+github.com/tetratelabs/wazero/sys
+github.com/tetratelabs/wazero/wasi_snapshot_preview1
 # github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802 => github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802
 github.com/tmc/grpc-websocket-proxy/wsproxy
 # github.com/vishvananda/netlink v1.1.0 => github.com/vishvananda/netlink v1.1.0
@@ -2655,6 +2682,7 @@ sigs.k8s.io/yaml
 # github.com/stretchr/objx => github.com/stretchr/objx v0.2.0
 # github.com/stretchr/testify => github.com/stretchr/testify v1.7.0
 # github.com/syndtr/gocapability => github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
+# github.com/tetratelabs/wazero => github.com/tetratelabs/wazero v0.0.0-20220719035537-0da1af2d51a7
 # github.com/tmc/grpc-websocket-proxy => github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802
 # github.com/urfave/cli => github.com/urfave/cli v1.22.2
 # github.com/urfave/negroni => github.com/urfave/negroni v1.0.0
