@@ -17,21 +17,21 @@ const (
 	panicOutput = "panic output"
 )
 
-func newTestWasiExecutor(t *testing.T) *Executor {
+func newTestWasiRuntime(t *testing.T) *Runtime {
 	source, err := os.ReadFile(wasiTestModuleFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wasiExec, err := NewExecutor(source)
+	runtime, err := NewRuntime(source)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return wasiExec
+	return runtime
 }
 
 func TestWasiExecutorRun(t *testing.T) {
-	wasiExec := newTestWasiExecutor(t)
+	wasiExec := newTestWasiRuntime(t)
 	ctx := context.Background()
 
 	outputRaw, err := wasiExec.Run(ctx, "my_function", []byte("stdin input"))
@@ -45,7 +45,7 @@ func TestWasiExecutorRun(t *testing.T) {
 }
 
 func TestWasiExecutorRunMultiple(t *testing.T) {
-	wasiExec := newTestWasiExecutor(t)
+	wasiExec := newTestWasiRuntime(t)
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
@@ -61,7 +61,7 @@ func TestWasiExecutorRunMultiple(t *testing.T) {
 }
 
 func TestWasiExecutorRunPanic(t *testing.T) {
-	wasiExec := newTestWasiExecutor(t)
+	wasiExec := newTestWasiRuntime(t)
 	ctx := context.Background()
 	_, err := wasiExec.Run(ctx, "my_panic", []byte("stdin input"))
 	if err == nil {
@@ -74,7 +74,7 @@ func TestWasiExecutorRunPanic(t *testing.T) {
 }
 
 func TestWasiExecutorRunError(t *testing.T) {
-	wasiExec := newTestWasiExecutor(t)
+	wasiExec := newTestWasiRuntime(t)
 	ctx := context.Background()
 	_, err := wasiExec.Run(ctx, "my_error", []byte("stdin input"))
 	if err == nil {

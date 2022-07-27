@@ -24,8 +24,7 @@ type AuthenticationModuleConfig struct {
 }
 
 type Authenticator struct {
-	//exec         *wasi.Executor
-	wrapper      *wasi.Wrapper
+	exec         *wasi.Executor
 	implicitAuds authn.Audiences
 	settings     interface{}
 }
@@ -36,53 +35,30 @@ func NewAuthenticatorWithConfig(config *AuthenticationModuleConfig) (*Authentica
 		return nil, err
 	}
 
-	wasiExecutor, err := wasi.NewExecutor(source)
+	exec, err := wasi.NewExecutor(source, "authn", config.Settings)
 	if err != nil {
 		return nil, err
 	}
 
-	runFn := func(ctx context.Context, in []byte) ([]byte, error) {
-		return wasiExecutor.Run(ctx, "authn", in)
-	}
-
 	return &Authenticator{
-		//exec:         wasiExecutor,
-		wrapper:      wasi.NewWrapper(runFn),
+		exec:         exec,
 		settings:     config.Settings,
 		implicitAuds: config.Audiences,
 	}, nil
 }
 
-type WASIAuthenticationRequest struct {
-	Request  *authv1.TokenReview `json:"request,omitempty"`
-	Settings interface{}         `json:"settings,omitempty"`
-}
-
-type WASIAuthenticationResponse struct {
-	Response *authv1.TokenReview `json:"response,omitempty"`
-	Error    *string             `json:"error,omitempty"`
-}
-
 func (a *Authenticator) AuthenticateToken(ctx context.Context, token string) (*authn.Response, bool, error) {
 	wantAuds, checkAuds := authn.AudiencesFrom(ctx)
 
-	req := WASIAuthenticationRequest{
-		Request: &authv1.TokenReview{
-			Spec: authv1.TokenReviewSpec{
-				Token:     token,
-				Audiences: wantAuds,
-			},
+	req := &authv1.TokenReview{
+		Spec: authv1.TokenReviewSpec{
+			Token:     token,
+			Audiences: wantAuds,
 		},
-		Settings: a.settings,
 	}
 
-	// reqPayload, err := json.Marshal(req)
-	// if err != nil {
-	// 	return nil, false, err
-	// }
-
 	resp := &authv1.TokenReview{}
-	err := a.wrapper.Run(ctx, req.Request, a.settings, resp)
+	err := a.exec.Run(ctx, req, resp)
 	if err != nil {
 		return nil, false, err
 	}
