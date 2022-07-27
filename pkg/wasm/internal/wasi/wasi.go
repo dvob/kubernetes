@@ -3,13 +3,62 @@ package wasi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	wasi "github.com/tetratelabs/wazero/wasi_snapshot_preview1"
 )
+
+type Request struct {
+	Request  interface{} `json:"request"`
+	Settings interface{} `json:"settings,omitempty"`
+}
+
+type Response struct {
+	Response interface{} `json:"response,omitempty"`
+	Error    *string     `json:"settings,omitempty"`
+}
+
+type Wrapper struct {
+	run func(context.Context, []byte) ([]byte, error)
+}
+
+func NewWrapper(fn func(context.Context, []byte) ([]byte, error)) *Wrapper {
+	return &Wrapper{
+		run: fn,
+	}
+}
+
+func (w *Wrapper) Run(ctx context.Context, input interface{}, settings interface{}, output interface{}) error {
+	if input == nil {
+		panic("missing input")
+	}
+	req := &Request{
+		Request:  input,
+		Settings: settings,
+	}
+	reqData, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	respData, err := w.run(ctx, reqData)
+	if err != nil {
+		return err
+	}
+	resp := &Response{}
+	err = json.Unmarshal(respData, resp)
+	if err != nil {
+		return err
+	}
+	if resp.Error != nil && len(*resp.Error) > 0 {
+		return fmt.Errorf("returned error: '%s'", *resp.Error)
+	}
+	return mapstructure.Decode(resp.Response, output)
+}
 
 type Executor struct {
 	mu       *sync.Mutex

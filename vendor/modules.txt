@@ -511,6 +511,7 @@ github.com/mistifyio/go-zfs
 # github.com/mitchellh/go-wordwrap v1.0.0 => github.com/mitchellh/go-wordwrap v1.0.0
 github.com/mitchellh/go-wordwrap
 # github.com/mitchellh/mapstructure v1.4.1 => github.com/mitchellh/mapstructure v1.4.1
+## explicit
 github.com/mitchellh/mapstructure
 # github.com/moby/ipvs v1.0.1 => github.com/moby/ipvs v1.0.1
 ## explicit

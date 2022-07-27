@@ -38,7 +38,7 @@ func TestAuthenticatorSuccess(t *testing.T) {
 	}
 
 	if !ok {
-		t.Errorf("token '%s' should be authenticated", testToken)
+		t.Fatalf("token '%s' should be authenticated", testToken)
 	}
 
 	if resp.User.GetName() != testUser {

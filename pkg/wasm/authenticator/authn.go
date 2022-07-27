@@ -2,7 +2,6 @@ package authenticator
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 
@@ -25,7 +24,8 @@ type AuthenticationModuleConfig struct {
 }
 
 type Authenticator struct {
-	exec         *wasi.Executor
+	//exec         *wasi.Executor
+	wrapper      *wasi.Wrapper
 	implicitAuds authn.Audiences
 	settings     interface{}
 }
@@ -41,8 +41,13 @@ func NewAuthenticatorWithConfig(config *AuthenticationModuleConfig) (*Authentica
 		return nil, err
 	}
 
+	runFn := func(ctx context.Context, in []byte) ([]byte, error) {
+		return wasiExecutor.Run(ctx, "authn", in)
+	}
+
 	return &Authenticator{
-		exec:         wasiExecutor,
+		//exec:         wasiExecutor,
+		wrapper:      wasi.NewWrapper(runFn),
 		settings:     config.Settings,
 		implicitAuds: config.Audiences,
 	}, nil
@@ -71,30 +76,18 @@ func (a *Authenticator) AuthenticateToken(ctx context.Context, token string) (*a
 		Settings: a.settings,
 	}
 
-	reqPayload, err := json.Marshal(req)
+	// reqPayload, err := json.Marshal(req)
+	// if err != nil {
+	// 	return nil, false, err
+	// }
+
+	resp := &authv1.TokenReview{}
+	err := a.wrapper.Run(ctx, req.Request, a.settings, resp)
 	if err != nil {
 		return nil, false, err
 	}
 
-	respPayload, err := a.exec.Run(ctx, "authn", reqPayload)
-	if err != nil {
-		return nil, false, err
-	}
-
-	resp := &WASIAuthenticationResponse{}
-	err = json.Unmarshal(respPayload, resp)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if resp.Error != nil {
-		return nil, false, errors.New(*resp.Error)
-	}
-
-	if resp.Response == nil {
-		return nil, false, errors.New("missing response")
-	}
-	tr := resp.Response
+	tr := resp
 
 	var auds authn.Audiences
 	if checkAuds {
