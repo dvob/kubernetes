@@ -3,4 +3,5 @@
 members = [
     "test-wasi",
     "test-authn",
+    "test-authz",
 ]
