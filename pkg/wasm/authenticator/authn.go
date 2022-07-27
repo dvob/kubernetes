@@ -1,4 +1,4 @@
-package wasm
+package authenticator
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	authv1 "k8s.io/api/authentication/v1"
 	authn "k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
 var _ authn.Token = (*Authenticator)(nil)
@@ -24,7 +25,7 @@ type AuthenticationModuleConfig struct {
 }
 
 type Authenticator struct {
-	exec         *wasiExecutor
+	exec         *wasi.Executor
 	implicitAuds authn.Audiences
 	settings     interface{}
 }
@@ -35,7 +36,7 @@ func NewAuthenticatorWithConfig(config *AuthenticationModuleConfig) (*Authentica
 		return nil, err
 	}
 
-	wasiExecutor, err := newWasiExecutor(source)
+	wasiExecutor, err := wasi.NewExecutor(source)
 	if err != nil {
 		return nil, err
 	}

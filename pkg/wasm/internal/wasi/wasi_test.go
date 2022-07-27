@@ -1,4 +1,4 @@
-package wasm
+package wasi
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	wasiTestModuleFile = "testdata/target/wasm32-wasi/debug/test_wasi.wasm"
+	wasiTestModuleFile = "../../testdata/target/wasm32-wasi/debug/test_wasi.wasm"
 	// the function my_function writes the following outputs
 	expectedStdout = "stdout output\n"
 	expectedStderr = "stderr output\n"
@@ -17,12 +17,12 @@ const (
 	panicOutput = "panic output"
 )
 
-func newTestWasiExecutor(t *testing.T) *wasiExecutor {
+func newTestWasiExecutor(t *testing.T) *Executor {
 	source, err := os.ReadFile(wasiTestModuleFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wasiExec, err := newWasiExecutor(source)
+	wasiExec, err := NewExecutor(source)
 	if err != nil {
 		t.Fatal(err)
 	}

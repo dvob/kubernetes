@@ -1,4 +1,4 @@
-package wasm
+package wasi
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	wasi "github.com/tetratelabs/wazero/wasi_snapshot_preview1"
 )
 
-type wasiExecutor struct {
+type Executor struct {
 	mu       *sync.Mutex
 	runtime  wazero.Runtime
 	code     wazero.CompiledModule
@@ -21,7 +21,7 @@ type wasiExecutor struct {
 	stderr   bytes.Buffer
 }
 
-func newWasiExecutor(moduleSource []byte) (*wasiExecutor, error) {
+func NewExecutor(moduleSource []byte) (*Executor, error) {
 	ctx := context.Background()
 
 	runtime := wazero.NewRuntime()
@@ -37,24 +37,24 @@ func newWasiExecutor(moduleSource []byte) (*wasiExecutor, error) {
 		return nil, err
 	}
 
-	return &wasiExecutor{
+	return &Executor{
 		mu:      &sync.Mutex{},
 		runtime: runtime,
 		code:    code,
 	}, nil
 }
 
-func (e *wasiExecutor) hasFunction(fnName string) bool {
+func (e *Executor) HasFunction(fnName string) bool {
 	exportedFunctions := e.code.ExportedFunctions()
 	_, ok := exportedFunctions[fnName]
 	return ok
 }
 
-func (e *wasiExecutor) Close(ctx context.Context) error {
+func (e *Executor) Close(ctx context.Context) error {
 	return e.runtime.Close(ctx)
 }
 
-func (e *wasiExecutor) Run(ctx context.Context, fnName string, input []byte) ([]byte, error) {
+func (e *Executor) Run(ctx context.Context, fnName string, input []byte) ([]byte, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.stdin.Reset()
