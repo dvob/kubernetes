@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 
-	"github.com/imdario/mergo"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -136,15 +136,11 @@ func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o 
 		return nil
 	}
 
-	newObj, err := o.GetObjectCreater().New(attr.GetKind())
-	if err != nil {
-		return fmt.Errorf("failed to create new object")
-	}
-	err = json.Unmarshal(result.Patch, newObj)
-	if err != nil {
-		return fmt.Errorf("failed to apply changes: %w", err)
-	}
-	err = mergo.Merge(attr.GetObject(), newObj, mergo.WithOverride)
+	// reset obj
+	v := reflect.ValueOf(attr.GetObject())
+	v.Elem().Set(reflect.Zero(v.Elem().Type()))
+
+	err = json.Unmarshal(result.Patch, attr.GetObject())
 	if err != nil {
 		return fmt.Errorf("failed to apply changes: %w", err)
 	}
