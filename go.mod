@@ -51,11 +51,11 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/heketi/heketi v10.3.0+incompatible
 	github.com/heketi/tests v0.0.0-20151005000721-f3775cbcefd6 // indirect
+	github.com/imdario/mergo v0.3.5
 	github.com/ishidawataru/sctp v0.0.0-20190723014705-7c296d48a2b5
 	github.com/libopenstorage/openstorage v1.0.0
 	github.com/lithammer/dedent v1.1.0
 	github.com/lpabon/godbc v0.1.1 // indirect
-	github.com/mitchellh/mapstructure v1.4.1
 	github.com/moby/ipvs v1.0.1
 	github.com/moby/sys/mountinfo v0.6.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170603005431-491d3605edfb // indirect

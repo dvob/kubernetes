@@ -5,4 +5,5 @@ members = [
     "test-authn",
     "test-authz",
     "test-admission",
+    "test-admission-mut",
 ]

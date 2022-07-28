@@ -11,4 +11,5 @@ type AdmissionModuleConfig struct {
 	Mutating bool   `json:"mutating"`
 	Rules    []v1.RuleWithOperations
 	Settings interface{}
+	Debug    bool
 }

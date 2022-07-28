@@ -2,9 +2,11 @@ package admission
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
+	"github.com/imdario/mergo"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +39,10 @@ func NewAdmissionControllerWithConfig(config *AdmissionModuleConfig) (*Admission
 		exec, err = wasi.NewExecutor(source, "mutate", config.Settings)
 	} else {
 		exec, err = wasi.NewExecutor(source, "validate", config.Settings)
+	}
+
+	if config.Debug {
+		exec.SetDebugOut(os.Stdout)
 	}
 	if err != nil {
 		return nil, err
@@ -92,7 +98,6 @@ func (a *AdmissionController) Validate(ctx context.Context, attr k8s.Attributes,
 func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
 	// TODO: use custom error with module name
 
-	// skip mutating addmision
 	if !a.Mutating {
 		return nil
 	}
@@ -119,11 +124,32 @@ func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o 
 		return err
 	}
 
-	if result.Allowed {
+	if !result.Allowed {
+		return fmt.Errorf("not allowed")
+	}
+
+	if result.PatchType != "Full" {
+		return fmt.Errorf("patch type not supported")
+	}
+
+	if len(result.Patch) == 0 {
 		return nil
 	}
 
-	return fmt.Errorf("reject")
+	newObj, err := o.GetObjectCreater().New(attr.GetKind())
+	if err != nil {
+		return fmt.Errorf("failed to create new object")
+	}
+	err = json.Unmarshal(result.Patch, newObj)
+	if err != nil {
+		return fmt.Errorf("failed to apply changes: %w", err)
+	}
+	err = mergo.Merge(attr.GetObject(), newObj, mergo.WithOverride)
+	if err != nil {
+		return fmt.Errorf("failed to apply changes: %w", err)
+	}
+
+	return nil
 }
 
 func (a *AdmissionController) toAdmissionReview(uid types.UID, attr k8s.Attributes, o k8s.ObjectInterfaces) (*admissionv1.AdmissionReview, error) {

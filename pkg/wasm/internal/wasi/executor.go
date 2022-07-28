@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 )
 
 type Request struct {
@@ -19,12 +20,18 @@ type Response struct {
 type Executor struct {
 	run      func(context.Context, []byte) ([]byte, error)
 	settings interface{}
+	debug    io.Writer
 }
 
 func NewExecutorWithFn(fn func(context.Context, []byte) ([]byte, error)) *Executor {
 	return &Executor{
-		run: fn,
+		run:   fn,
+		debug: nil,
 	}
+}
+
+func (e *Executor) SetDebugOut(out io.Writer) {
+	e.debug = out
 }
 
 func (e *Executor) Run(ctx context.Context, input interface{}, output interface{}) error {
@@ -36,10 +43,20 @@ func (e *Executor) Run(ctx context.Context, input interface{}, output interface{
 	if err != nil {
 		return err
 	}
+
+	if e.debug != nil {
+		fmt.Fprintf(e.debug, "request: '%s'", reqData)
+	}
+
 	respData, err := e.run(ctx, reqData)
 	if err != nil {
 		return err
 	}
+
+	if e.debug != nil {
+		fmt.Fprintf(e.debug, "response: '%s'", respData)
+	}
+
 	resp := &Response{}
 	err = json.Unmarshal(respData, resp)
 	if err != nil {

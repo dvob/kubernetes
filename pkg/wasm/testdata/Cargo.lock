@@ -218,6 +218,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-admission-mut"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "k8s-openapi",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "test-authn"
 version = "0.1.0"
 dependencies = [

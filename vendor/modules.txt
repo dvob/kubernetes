@@ -466,6 +466,7 @@ github.com/heketi/heketi/pkg/utils
 # github.com/heketi/tests v0.0.0-20151005000721-f3775cbcefd6 => github.com/heketi/tests v0.0.0-20151005000721-f3775cbcefd6
 ## explicit
 # github.com/imdario/mergo v0.3.5 => github.com/imdario/mergo v0.3.5
+## explicit
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0 => github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
@@ -511,7 +512,6 @@ github.com/mistifyio/go-zfs
 # github.com/mitchellh/go-wordwrap v1.0.0 => github.com/mitchellh/go-wordwrap v1.0.0
 github.com/mitchellh/go-wordwrap
 # github.com/mitchellh/mapstructure v1.4.1 => github.com/mitchellh/mapstructure v1.4.1
-## explicit
 github.com/mitchellh/mapstructure
 # github.com/moby/ipvs v1.0.1 => github.com/moby/ipvs v1.0.1
 ## explicit
