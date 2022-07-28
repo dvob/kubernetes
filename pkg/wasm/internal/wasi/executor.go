@@ -11,20 +11,9 @@ type Request struct {
 	Settings interface{} `json:"settings,omitempty"`
 }
 
-type RawResponse []byte
-
-func (r *RawResponse) UnmarshalJSON(data []byte) error {
-	*r = data
-	return nil
-}
-
-func (r *RawResponse) MarshalJSON() ([]byte, error) {
-	return []byte(*r), nil
-}
-
 type Response struct {
-	Response RawResponse `json:"response,omitempty"`
-	Error    *string     `json:"settings,omitempty"`
+	Response json.RawMessage `json:"response,omitempty"`
+	Error    *string         `json:"settings,omitempty"`
 }
 
 type Executor struct {
