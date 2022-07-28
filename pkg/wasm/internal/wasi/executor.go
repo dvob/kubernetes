@@ -7,16 +7,6 @@ import (
 	"io"
 )
 
-type Request struct {
-	Request  interface{} `json:"request"`
-	Settings interface{} `json:"settings,omitempty"`
-}
-
-type Response struct {
-	Response json.RawMessage `json:"response,omitempty"`
-	Error    *string         `json:"settings,omitempty"`
-}
-
 type Executor struct {
 	run      func(context.Context, []byte) ([]byte, error)
 	settings interface{}
