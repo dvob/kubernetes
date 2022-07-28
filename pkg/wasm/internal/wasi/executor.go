@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type Request struct {
@@ -13,8 +11,19 @@ type Request struct {
 	Settings interface{} `json:"settings,omitempty"`
 }
 
+type RawResponse []byte
+
+func (r *RawResponse) UnmarshalJSON(data []byte) error {
+	*r = data
+	return nil
+}
+
+func (r *RawResponse) MarshalJSON() ([]byte, error) {
+	return []byte(*r), nil
+}
+
 type Response struct {
-	Response interface{} `json:"response,omitempty"`
+	Response RawResponse `json:"response,omitempty"`
 	Error    *string     `json:"settings,omitempty"`
 }
 
@@ -30,9 +39,6 @@ func NewExecutorWithFn(fn func(context.Context, []byte) ([]byte, error)) *Execut
 }
 
 func (e *Executor) Run(ctx context.Context, input interface{}, output interface{}) error {
-	if input == nil {
-		panic("missing input")
-	}
 	req := &Request{
 		Request:  input,
 		Settings: e.settings,
@@ -53,5 +59,5 @@ func (e *Executor) Run(ctx context.Context, input interface{}, output interface{
 	if resp.Error != nil && len(*resp.Error) > 0 {
 		return fmt.Errorf("returned error: '%s'", *resp.Error)
 	}
-	return mapstructure.Decode(resp.Response, output)
+	return json.Unmarshal(resp.Response, output)
 }
