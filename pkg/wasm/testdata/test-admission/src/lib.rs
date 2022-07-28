@@ -30,8 +30,8 @@ fn validate() {
         patch_type: None, 
     };
 
-    if pod.metadata.namespace.expect("no namespace") == "default" && pod.metadata.name.expect("no name") != "foo" {
-        status.allowed = false
+    if pod.metadata.namespace.expect("no namespace") == "default" && pod.metadata.name.expect("no name") != "allowed-pod-name" {
+        status.allowed = false;
     }
 
     let mut response = admission::AdmissionReview::default();

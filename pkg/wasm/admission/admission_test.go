@@ -47,14 +47,17 @@ func TestAdmissionReject(t *testing.T) {
 	s := runtime.NewScheme() // admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	corev1.AddToScheme(s)
 	objInterface := admission.NewObjectInterfacesFromScheme(s)
+	ns := "default"
+	podName := "not-allowed"
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "abc",
-			Namespace: "test",
+			Name:      podName,
+			Namespace: ns,
 		},
 		Spec: corev1.PodSpec{},
 	}
-	attr := admission.NewAttributesRecord(pod, nil, schema.GroupVersionKind{"", "v1", "Pod"}, "ns", "name", schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+	attr := admission.NewAttributesRecord(pod, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+
 	err := admissionController.Validate(ctx, attr, objInterface)
 	if err == nil {
 		t.Fatalf("request should fail")
