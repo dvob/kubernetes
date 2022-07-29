@@ -22,14 +22,24 @@ import (
 var _ k8s.MutationInterface = (*AdmissionController)(nil)
 var _ k8s.ValidationInterface = (*AdmissionController)(nil)
 
+type AdmissionReviewFunc func(context.Context, *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error)
+
 type AdmissionController struct {
-	runner   wasi.Runner
+	review   AdmissionReviewFunc
 	Mutating bool
 	Rules    []v1.RuleWithOperations
 }
 
-func NewAdmissionControllerWithConfig(config *AdmissionModuleConfig) (*AdmissionController, error) {
-	source, err := os.ReadFile(config.File)
+func NewAdmissionControllerWithFn(fn AdmissionReviewFunc, mut bool, rules []v1.RuleWithOperations) *AdmissionController {
+	return &AdmissionController{
+		review:   fn,
+		Mutating: mut,
+		Rules:    rules,
+	}
+}
+
+func NewAdmissionControllerWithConfig(config *ModuleConfig) (*AdmissionController, error) {
+	source, err := os.ReadFile(config.Module)
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +55,15 @@ func NewAdmissionControllerWithConfig(config *AdmissionModuleConfig) (*Admission
 		return nil, err
 	}
 
+	reviewFn := func(ctx context.Context, in *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
+		out := &admissionv1.AdmissionReview{}
+		err := runner.Run(ctx, in, out)
+		return out, err
+
+	}
+
 	return &AdmissionController{
-		runner:   runner,
+		review:   reviewFn,
 		Mutating: config.Mutating,
 		Rules:    config.Rules,
 	}, nil
@@ -74,8 +91,7 @@ func (a *AdmissionController) Validate(ctx context.Context, attr k8s.Attributes,
 		return err
 	}
 
-	resp := &admissionv1.AdmissionReview{}
-	err = a.runner.Run(ctx, req, resp)
+	resp, err := a.review(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -89,7 +105,7 @@ func (a *AdmissionController) Validate(ctx context.Context, attr k8s.Attributes,
 		return nil
 	}
 
-	return fmt.Errorf("reject")
+	return toRejectErr("none", result.Result)
 }
 
 func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
@@ -110,8 +126,7 @@ func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o 
 		return err
 	}
 
-	resp := &admissionv1.AdmissionReview{}
-	err = a.runner.Run(ctx, req, resp)
+	resp, err := a.review(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -122,7 +137,7 @@ func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o 
 	}
 
 	if !result.Allowed {
-		return fmt.Errorf("not allowed")
+		return toRejectErr("none", result.Result)
 	}
 
 	if result.PatchType != "Full" {

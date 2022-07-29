@@ -4,7 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 )
+
+func DebugRawRunner(rawRunner RawRunner) RawRunner {
+	return RawRunnerFunc(func(ctx context.Context, in []byte) ([]byte, error) {
+		log.Printf("in: '%s'\n", in)
+		out, err := rawRunner.Run(ctx, in)
+		if err != nil {
+			log.Printf("err: '%s'", err)
+			return nil, err
+		}
+		log.Printf("out: '%s'\n", out)
+		return out, nil
+	})
+}
 
 type RawRunner interface {
 	Run(ctx context.Context, in []byte) ([]byte, error)

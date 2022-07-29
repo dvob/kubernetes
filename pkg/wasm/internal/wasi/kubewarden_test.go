@@ -3,6 +3,7 @@ package wasi
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -13,30 +14,48 @@ var (
 func TestKubewarden(t *testing.T) {
 	ctx := context.Background()
 
+	if _, err := os.Stat(safeAnnotationsModule); err != nil {
+		t.Skip("safe-annotations module not available")
+	}
+
 	moduleSource, err := os.ReadFile(safeAnnotationsModule)
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := NewWAPCRuntime(moduleSource)
+
+	mod, err := NewKubewardenModule(moduleSource)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	validateSettings := NewJSONRunner(runtime.RawRunner("validate_settings"))
+	t.Run("invalid settings", func(t *testing.T) {
+		// in the invalidSettings the DeniedAnnotations are an int instead of a map[string]string
+		invalidSettings := struct {
+			DeniedAnnotations int `json:"denied_annotations"`
+		}{}
 
-	settings := struct {
-		Foo               string `json:"foo"`
-		DeniedAnnotations int    `json:"denied_annotations"`
-	}{
-		Foo:               "bla",
-		DeniedAnnotations: 12,
-	}
+		err := mod.ValidateSettings(ctx, invalidSettings)
+		if err == nil {
+			t.Fatalf("expected error because of invalid settings")
+		}
 
-	resp := &SettingsValidationResponse{}
-	err = validateSettings.Run(ctx, settings, resp)
-	if err != nil {
-		t.Fatal(err)
-	}
+		expectedErrorString := "invalid settings"
+		if !strings.Contains(err.Error(), expectedErrorString) {
+			t.Fatalf("error shold contain string '%s', got=%s", expectedErrorString, err.Error())
+		}
+	})
+	t.Run("valid settings", func(t *testing.T) {
+		validSettings := struct {
+			DeniedAnnotations []string `json:"denied_annotations"`
+		}{
+			DeniedAnnotations: []string{
+				"foo",
+			},
+		}
 
-	t.Logf("%#+v", resp)
+		err := mod.ValidateSettings(ctx, validSettings)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 }
