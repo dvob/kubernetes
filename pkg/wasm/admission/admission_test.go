@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	admissionTestModuleFile    = "../testdata/target/wasm32-wasi/debug/test_admission.wasm"
-	admissionMutTestModuleFile = "../testdata/target/wasm32-wasi/debug/test_admission_mut.wasm"
+	admissionTestModuleFile    = "../testmodules/target/wasm32-wasi/debug/test_admission.wasm"
+	admissionMutTestModuleFile = "../testmodules/target/wasm32-wasi/debug/test_admission_mut.wasm"
 )
 
 func newTestAdmissionController(t *testing.T) *AdmissionController {

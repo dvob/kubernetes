@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	authzTestModuleFile = "../testdata/target/wasm32-wasi/debug/test_authz.wasm"
+	authzTestModuleFile = "../testmodules/target/wasm32-wasi/debug/test_authz.wasm"
 )
 
 func newTestAuthorizer(t *testing.T) *Authorizer {
