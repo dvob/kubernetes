@@ -23,7 +23,7 @@ var _ k8s.MutationInterface = (*AdmissionController)(nil)
 var _ k8s.ValidationInterface = (*AdmissionController)(nil)
 
 type AdmissionController struct {
-	exec     *wasi.Executor
+	runner   wasi.Runner
 	Mutating bool
 	Rules    []v1.RuleWithOperations
 }
@@ -34,22 +34,19 @@ func NewAdmissionControllerWithConfig(config *AdmissionModuleConfig) (*Admission
 		return nil, err
 	}
 
-	var exec *wasi.Executor
+	var runner wasi.Runner
 	if config.Mutating {
-		exec, err = wasi.NewExecutor(source, "mutate", config.Settings)
+		runner, err = wasi.NewWASIDefaultRunner(source, "mutate", config.Settings)
 	} else {
-		exec, err = wasi.NewExecutor(source, "validate", config.Settings)
+		runner, err = wasi.NewWASIDefaultRunner(source, "validate", config.Settings)
 	}
 
-	if config.Debug {
-		exec.SetDebugOut(os.Stdout)
-	}
 	if err != nil {
 		return nil, err
 	}
 
 	return &AdmissionController{
-		exec:     exec,
+		runner:   runner,
 		Mutating: config.Mutating,
 		Rules:    config.Rules,
 	}, nil
@@ -78,7 +75,7 @@ func (a *AdmissionController) Validate(ctx context.Context, attr k8s.Attributes,
 	}
 
 	resp := &admissionv1.AdmissionReview{}
-	err = a.exec.Run(ctx, req, resp)
+	err = a.runner.Run(ctx, req, resp)
 	if err != nil {
 		return err
 	}
@@ -114,7 +111,7 @@ func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o 
 	}
 
 	resp := &admissionv1.AdmissionReview{}
-	err = a.exec.Run(ctx, req, resp)
+	err = a.runner.Run(ctx, req, resp)
 	if err != nil {
 		return err
 	}

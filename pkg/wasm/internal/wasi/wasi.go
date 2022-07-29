@@ -21,20 +21,13 @@ type Runtime struct {
 	stderr   bytes.Buffer
 }
 
-func NewExecutor(moduleSource []byte, fnName string, settings interface{}) (*Executor, error) {
+func NewWASIDefaultRunner(moduleSource []byte, fnName string, settings interface{}) (*EnvelopeRunner, error) {
 	r, err := NewRuntime(moduleSource)
 	if err != nil {
 		return nil, err
 	}
 
-	runFn := func(ctx context.Context, in []byte) ([]byte, error) {
-		return r.Run(ctx, fnName, in)
-	}
-
-	return &Executor{
-		run:      runFn,
-		settings: settings,
-	}, nil
+	return NewEnvelopeRunner(r.RawRunner(fnName), settings), nil
 }
 
 func NewRuntime(moduleSource []byte) (*Runtime, error) {
@@ -60,30 +53,36 @@ func NewRuntime(moduleSource []byte) (*Runtime, error) {
 	}, nil
 }
 
-func (e *Runtime) HasFunction(fnName string) bool {
-	exportedFunctions := e.code.ExportedFunctions()
+func (r *Runtime) RawRunner(fnName string) RawRunner {
+	return RawRunnerFunc(func(ctx context.Context, in []byte) ([]byte, error) {
+		return r.Run(ctx, fnName, in)
+	})
+}
+
+func (r *Runtime) HasFunction(fnName string) bool {
+	exportedFunctions := r.code.ExportedFunctions()
 	_, ok := exportedFunctions[fnName]
 	return ok
 }
 
-func (e *Runtime) Close(ctx context.Context) error {
-	return e.runtime.Close(ctx)
+func (r *Runtime) Close(ctx context.Context) error {
+	return r.runtime.Close(ctx)
 }
 
-func (e *Runtime) Run(ctx context.Context, fnName string, input []byte) ([]byte, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.stdin.Reset()
-	e.stdout.Reset()
-	e.stderr.Reset()
+func (r *Runtime) Run(ctx context.Context, fnName string, input []byte) ([]byte, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.stdin.Reset()
+	r.stdout.Reset()
+	r.stderr.Reset()
 
-	e.stdin.Write(input)
+	r.stdin.Write(input)
 
-	config := wazero.NewModuleConfig().WithStdin(&e.stdin).WithStdout(&e.stdout).WithStderr(&e.stderr).WithStartFunctions()
+	config := wazero.NewModuleConfig().WithStdin(&r.stdin).WithStdout(&r.stdout).WithStderr(&r.stderr).WithStartFunctions()
 
-	instance, err := e.runtime.InstantiateModule(ctx, e.code, config)
+	instance, err := r.runtime.InstantiateModule(ctx, r.code, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed with stderr '%s': %w)", e.stderr.String(), err)
+		return nil, fmt.Errorf("failed with stderr '%s': %w)", r.stderr.String(), err)
 	}
 	defer instance.Close(ctx)
 
@@ -94,15 +93,15 @@ func (e *Runtime) Run(ctx context.Context, fnName string, input []byte) ([]byte,
 
 	_, err = fn.Call(ctx)
 	if err != nil {
-		errOut := e.stderr.String()
+		errOut := r.stderr.String()
 		if errOut != "" {
 			return nil, fmt.Errorf("call to %s failed. stderr: '%s', err: %w", fnName, errOut, err)
 		}
 		return nil, err
 	}
 
-	output := make([]byte, e.stdout.Len())
-	copy(output, e.stdout.Bytes())
+	output := make([]byte, r.stdout.Len())
+	copy(output, r.stdout.Bytes())
 
 	return output, nil
 }

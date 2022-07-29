@@ -24,7 +24,7 @@ type AuthenticationModuleConfig struct {
 }
 
 type Authenticator struct {
-	exec         *wasi.Executor
+	runner       wasi.Runner
 	implicitAuds authn.Audiences
 	settings     interface{}
 }
@@ -35,13 +35,13 @@ func NewAuthenticatorWithConfig(config *AuthenticationModuleConfig) (*Authentica
 		return nil, err
 	}
 
-	exec, err := wasi.NewExecutor(source, "authn", config.Settings)
+	runner, err := wasi.NewWASIDefaultRunner(source, "authn", config.Settings)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Authenticator{
-		exec:         exec,
+		runner:       runner,
 		settings:     config.Settings,
 		implicitAuds: config.Audiences,
 	}, nil
@@ -58,7 +58,7 @@ func (a *Authenticator) AuthenticateToken(ctx context.Context, token string) (*a
 	}
 
 	resp := &authv1.TokenReview{}
-	err := a.exec.Run(ctx, req, resp)
+	err := a.runner.Run(ctx, req, resp)
 	if err != nil {
 		return nil, false, err
 	}

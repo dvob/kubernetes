@@ -15,7 +15,7 @@ import (
 var _ k8s.Authorizer = (*Authorizer)(nil)
 
 type Authorizer struct {
-	exec            *wasi.Executor
+	runner          wasi.Runner
 	decisionOnError authorizer.Decision
 }
 
@@ -25,13 +25,13 @@ func NewAuthorizerWithConfig(config *AuthorizationModuleConfig) (*Authorizer, er
 		return nil, err
 	}
 
-	exec, err := wasi.NewExecutor(source, "authz", config.Settings)
+	exec, err := wasi.NewWASIDefaultRunner(source, "authz", config.Settings)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Authorizer{
-		exec:            exec,
+		runner:          exec,
 		decisionOnError: authorizer.DecisionNoOpinion,
 	}, nil
 }
@@ -66,7 +66,7 @@ func (a *Authorizer) Authorize(ctx context.Context, attr authorizer.Attributes) 
 	}
 
 	resp := &authorizationv1.SubjectAccessReview{}
-	err = a.exec.Run(ctx, req, resp)
+	err = a.runner.Run(ctx, req, resp)
 	if err != nil {
 		klog.Errorf("Failed to run wasm exec: %v", err)
 		return a.decisionOnError, "", err
