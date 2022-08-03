@@ -2,11 +2,9 @@ package admission
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 
-	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
 const (
@@ -24,8 +21,9 @@ const (
 	allowPrivilegeModule       = "../testmodules/kubewarden/allow-privilege-escalation-psp-policy_v0.1.11.wasm"
 )
 
-func newTestAdmissionController(t *testing.T) *AdmissionController {
+func newTestAdmissionController(t *testing.T) *Module {
 	config := &ModuleConfig{
+		Type:     ModuleTypeWASI,
 		Module:   admissionTestModuleFile,
 		Mutating: false,
 		Rules: []v1.RuleWithOperations{
@@ -39,7 +37,7 @@ func newTestAdmissionController(t *testing.T) *AdmissionController {
 			},
 		},
 	}
-	admissionController, err := NewAdmissionControllerWithConfig(config)
+	admissionController, err := NewModule(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,9 +71,10 @@ func TestAdmissionReject(t *testing.T) {
 	}
 }
 
-func newTestAdmissionControllerMut(t *testing.T) *AdmissionController {
+func newTestAdmissionControllerMut(t *testing.T) *Module {
 	config := &ModuleConfig{
 		Module:   admissionMutTestModuleFile,
+		Type:     ModuleTypeWASI,
 		Mutating: true,
 		Rules: []v1.RuleWithOperations{
 			{
@@ -88,7 +87,7 @@ func newTestAdmissionControllerMut(t *testing.T) *AdmissionController {
 			},
 		},
 	}
-	admissionController, err := NewAdmissionControllerWithConfig(config)
+	admissionController, err := NewModule(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,45 +130,34 @@ func TestAdmissionMutating(t *testing.T) {
 }
 
 func TestKubewardenValidate(t *testing.T) {
-	moduleSource, err := os.ReadFile(safeAnnotationsModule)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mod, err := wasi.NewKubewardenModule(moduleSource)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	settings := struct {
-		DeniedAnnotations []string `json:"denied_annotations"`
-	}{
-		DeniedAnnotations: []string{
-			"invalid-annotation",
+	moduleConfig := &ModuleConfig{
+		Name:     "safe-annotations",
+		Type:     "kubewarden",
+		Module:   safeAnnotationsModule,
+		Mutating: false,
+		Settings: struct {
+			DeniedAnnotations []string `json:"denied_annotations"`
+		}{
+			DeniedAnnotations: []string{
+				"invalid-annotation",
+			},
 		},
-	}
-
-	err = mod.ValidateSettings(context.Background(), settings)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fn := func(ctx context.Context, ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
-		return mod.Validate(ctx, ar, settings)
-	}
-
-	rules := []v1.RuleWithOperations{
-		{
-			Operations: []v1.OperationType{"CREATE"},
-			Rule: v1.Rule{
-				APIGroups:   []string{"*"},
-				APIVersions: []string{"*"},
-				Resources:   []string{"*"},
+		Rules: []v1.RuleWithOperations{
+			{
+				Operations: []v1.OperationType{"CREATE"},
+				Rule: v1.Rule{
+					APIGroups:   []string{"*"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"*"},
+				},
 			},
 		},
 	}
 
-	admissionController := NewAdmissionControllerWithFn(fn, false, rules)
+	admissionController, err := NewModule(moduleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ctx := context.Background()
 
@@ -194,6 +182,7 @@ func TestKubewardenValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("request should fail")
 	}
+
 	expectedErrText := ""
 	if !strings.Contains(err.Error(), expectedErrText) {
 		t.Fatalf("text '%s' expected in error. got=%s", expectedErrText, err.Error())
@@ -201,44 +190,32 @@ func TestKubewardenValidate(t *testing.T) {
 }
 
 func TestKubewardenMutate(t *testing.T) {
-	moduleSource, err := os.ReadFile(allowPrivilegeModule)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mod, err := wasi.NewKubewardenModule(moduleSource)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	settings := struct {
-		DefaultAllowPrivilegeEscalation bool `json:"default_allow_privilege_escalation"`
-	}{
-		DefaultAllowPrivilegeEscalation: false,
-	}
-
-	err = mod.ValidateSettings(context.Background(), settings)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fn := func(ctx context.Context, ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
-		return mod.Validate(ctx, ar, settings)
-	}
-
-	rules := []v1.RuleWithOperations{
-		{
-			Operations: []v1.OperationType{"CREATE"},
-			Rule: v1.Rule{
-				APIGroups:   []string{"*"},
-				APIVersions: []string{"*"},
-				Resources:   []string{"*"},
+	moduleConfig := &ModuleConfig{
+		Name:     "safe-annotations",
+		Type:     "kubewarden",
+		Module:   allowPrivilegeModule,
+		Mutating: true,
+		Settings: struct {
+			DefaultAllowPrivilegeEscalation bool `json:"default_allow_privilege_escalation"`
+		}{
+			DefaultAllowPrivilegeEscalation: false,
+		},
+		Rules: []v1.RuleWithOperations{
+			{
+				Operations: []v1.OperationType{"CREATE"},
+				Rule: v1.Rule{
+					APIGroups:   []string{"*"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"*"},
+				},
 			},
 		},
 	}
 
-	admissionController := NewAdmissionControllerWithFn(fn, true, rules)
-
+	admissionController, err := NewModule(moduleConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx := context.Background()
 
 	s := runtime.NewScheme() // admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
@@ -250,9 +227,6 @@ func TestKubewardenMutate(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
 			Namespace: ns,
-			Annotations: map[string]string{
-				"invalid-annotation": "bla",
-			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{

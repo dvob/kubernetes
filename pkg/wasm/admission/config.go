@@ -2,7 +2,7 @@ package admission
 
 import v1 "k8s.io/api/admissionregistration/v1"
 
-type AdmissionConfig struct {
+type Config struct {
 	Modules []ModuleConfig `json:"modules"`
 }
 
@@ -14,6 +14,7 @@ const (
 )
 
 type ModuleConfig struct {
+	Name     string                  `json:"name"`
 	Type     ModuleType              `json:"type"`
 	Module   string                  `json:"file"`
 	Mutating bool                    `json:"mutating"`

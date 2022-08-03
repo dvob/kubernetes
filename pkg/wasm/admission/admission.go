@@ -19,31 +19,44 @@ import (
 	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
-var _ k8s.MutationInterface = (*AdmissionController)(nil)
-var _ k8s.ValidationInterface = (*AdmissionController)(nil)
+var _ k8s.MutationInterface = (*Module)(nil)
+var _ k8s.ValidationInterface = (*Module)(nil)
 
 type AdmissionReviewFunc func(context.Context, *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error)
 
-type AdmissionController struct {
+type Module struct {
+	// Name of the module. Used in error and log messages to identify the module.
+	// TODO: wrap all errors and add module name for easier debugging
+	Name     string
 	review   AdmissionReviewFunc
 	Mutating bool
 	Rules    []v1.RuleWithOperations
 }
 
-func NewAdmissionControllerWithFn(fn AdmissionReviewFunc, mut bool, rules []v1.RuleWithOperations) *AdmissionController {
-	return &AdmissionController{
+func NewModuleFromFn(fn AdmissionReviewFunc, mut bool, rules []v1.RuleWithOperations) *Module {
+	return &Module{
 		review:   fn,
 		Mutating: mut,
 		Rules:    rules,
 	}
 }
 
-func NewAdmissionControllerWithConfig(config *ModuleConfig) (*AdmissionController, error) {
+func NewModule(config *ModuleConfig) (*Module, error) {
+	switch config.Type {
+	case ModuleTypeWASI:
+		return NewWASIModule(config)
+	case ModuleTypeKubewarden:
+		return NewKubewardenModule(config)
+	default:
+		return nil, fmt.Errorf("unknown module type '%s'", config.Type)
+	}
+}
+
+func NewWASIModule(config *ModuleConfig) (*Module, error) {
 	source, err := os.ReadFile(config.Module)
 	if err != nil {
 		return nil, err
 	}
-
 	var runner wasi.Runner
 	if config.Mutating {
 		runner, err = wasi.NewWASIDefaultRunner(source, "mutate", config.Settings)
@@ -62,41 +75,80 @@ func NewAdmissionControllerWithConfig(config *ModuleConfig) (*AdmissionControlle
 
 	}
 
-	return &AdmissionController{
+	return &Module{
+		Name:     config.Name,
+		review:   reviewFn,
+		Mutating: config.Mutating,
+		Rules:    config.Rules,
+	}, nil
+
+}
+
+func NewKubewardenModule(config *ModuleConfig) (*Module, error) {
+	moduleSource, err := os.ReadFile(config.Module)
+	if err != nil {
+		return nil, err
+	}
+
+	mod, err := wasi.NewKubewardenModule(moduleSource)
+	if err != nil {
+		return nil, err
+	}
+
+	err = mod.ValidateSettings(context.Background(), config.Settings)
+	if err != nil {
+		return nil, err
+	}
+
+	reviewFn := func(ctx context.Context, ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
+		return mod.Validate(ctx, ar, config.Settings)
+	}
+	return &Module{
+		Name:     config.Name,
 		review:   reviewFn,
 		Mutating: config.Mutating,
 		Rules:    config.Rules,
 	}, nil
 }
 
-func (a *AdmissionController) Handles(operation k8s.Operation) bool {
-	// we run admission for all request. later in Admit and Validate we check if we
-	// run the request through the WASM stuff by checking the rules
-	return true
+func (m *Module) Handles(operation k8s.Operation) bool {
+	for _, rule := range m.Rules {
+		for _, op := range rule.Operations {
+			if op == v1.OperationAll {
+				return true
+			}
+			// The constants are the same such that this is a valid cast (and this
+			// is tested).
+			if op == v1.OperationType(operation) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
-func (a *AdmissionController) Validate(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
-	if a.Mutating {
+func (m *Module) Validate(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
+	if m.Mutating {
 		return nil
 	}
 
-	if !a.matchRequest(attr) {
+	if !m.matchRequest(attr) {
 		fmt.Println("skip")
 		return nil
 	}
 
 	uid := types.UID(uuid.NewUUID())
-	req, err := a.toAdmissionReview(uid, attr, o)
+	req, err := m.toAdmissionReview(uid, attr, o)
 	if err != nil {
 		return err
 	}
 
-	resp, err := a.review(ctx, req)
+	resp, err := m.review(ctx, req)
 	if err != nil {
 		return err
 	}
 
-	result, err := request.VerifyAdmissionResponse(uid, a.Mutating, resp)
+	result, err := request.VerifyAdmissionResponse(uid, m.Mutating, resp)
 	if err != nil {
 		return err
 	}
@@ -105,39 +157,37 @@ func (a *AdmissionController) Validate(ctx context.Context, attr k8s.Attributes,
 		return nil
 	}
 
-	return toRejectErr("none", result.Result)
+	return toRejectErr(m.Name, result.Result)
 }
 
-func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
-	// TODO: use custom error with module name
-
-	if !a.Mutating {
+func (m *Module) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
+	if !m.Mutating {
 		return nil
 	}
 
-	if !a.matchRequest(attr) {
+	if !m.matchRequest(attr) {
 		klog.Info("skip")
 		return nil
 	}
 
 	uid := types.UID(uuid.NewUUID())
-	req, err := a.toAdmissionReview(uid, attr, o)
+	req, err := m.toAdmissionReview(uid, attr, o)
 	if err != nil {
 		return err
 	}
 
-	resp, err := a.review(ctx, req)
+	resp, err := m.review(ctx, req)
 	if err != nil {
 		return err
 	}
 
-	result, err := request.VerifyAdmissionResponse(uid, a.Mutating, resp)
+	result, err := request.VerifyAdmissionResponse(uid, m.Mutating, resp)
 	if err != nil {
 		return err
 	}
 
 	if !result.Allowed {
-		return toRejectErr("none", result.Result)
+		return toRejectErr(m.Name, result.Result)
 	}
 
 	if result.PatchType != "Full" {
@@ -160,7 +210,7 @@ func (a *AdmissionController) Admit(ctx context.Context, attr k8s.Attributes, o 
 	return nil
 }
 
-func (a *AdmissionController) toAdmissionReview(uid types.UID, attr k8s.Attributes, o k8s.ObjectInterfaces) (*admissionv1.AdmissionReview, error) {
+func (m *Module) toAdmissionReview(uid types.UID, attr k8s.Attributes, o k8s.ObjectInterfaces) (*admissionv1.AdmissionReview, error) {
 	versionedAttr, err := generic.NewVersionedAttributes(attr, attr.GetKind(), o)
 	if err != nil {
 		return nil, err
@@ -177,8 +227,8 @@ func (a *AdmissionController) toAdmissionReview(uid types.UID, attr k8s.Attribut
 	return req, nil
 }
 
-func (a *AdmissionController) matchRequest(attr k8s.Attributes) bool {
-	for _, rule := range a.Rules {
+func (m *Module) matchRequest(attr k8s.Attributes) bool {
+	for _, rule := range m.Rules {
 		if (&rules.Matcher{Attr: attr, Rule: rule}).Matches() {
 			return true
 		}

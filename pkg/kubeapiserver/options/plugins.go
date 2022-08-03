@@ -21,6 +21,7 @@ package options
 // given binary target.
 import (
 	// Admission policies
+	wasm "k8s.io/kubernetes/pkg/wasm/admission"
 	"k8s.io/kubernetes/plugin/pkg/admission/admit"
 	"k8s.io/kubernetes/plugin/pkg/admission/alwayspullimages"
 	"k8s.io/kubernetes/plugin/pkg/admission/antiaffinity"
@@ -98,6 +99,7 @@ var AllOrderedPlugins = []string{
 	// new admission plugins should generally be inserted above here
 	// webhook, resourcequota, and deny plugins must go at the end
 
+	wasm.PluginName,              // WASM
 	mutatingwebhook.PluginName,   // MutatingAdmissionWebhook
 	validatingwebhook.PluginName, // ValidatingAdmissionWebhook
 	resourcequota.PluginName,     // ResourceQuota
@@ -118,6 +120,7 @@ func RegisterAllAdmissionPlugins(plugins *admission.Plugins) {
 	extendedresourcetoleration.Register(plugins)
 	gc.Register(plugins)
 	imagepolicy.Register(plugins)
+	wasm.Register(plugins)
 	limitranger.Register(plugins)
 	autoprovision.Register(plugins)
 	exists.Register(plugins)
