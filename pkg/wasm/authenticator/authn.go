@@ -121,7 +121,7 @@ func (m *Module) AuthenticateToken(ctx context.Context, token string) (*authn.Re
 		}
 		auds = wantAuds.Intersect(gotAuds)
 		if len(auds) == 0 {
-			klog.V(4).InfoS("no audiences", "want_auds", wantAuds, "got_auds", gotAuds)
+			klog.V(4).InfoS("no matching audiences", "want_auds", wantAuds, "got_auds", gotAuds)
 			return nil, false, nil
 		}
 	}

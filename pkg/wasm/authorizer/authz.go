@@ -51,11 +51,14 @@ func NewAuthorizerFormConfigFile(configFile string) (k8s.Authorizer, k8s.RuleRes
 }
 
 type ModuleConfig struct {
+	Name     string      `json:"name,omitempty"`
 	Module   string      `json:"module"`
-	Settings interface{} `json:"settings"`
+	Settings interface{} `json:"settings,omitempty"`
+	Debug    bool        `json:"debug,omitempty"`
 }
 
 type Module struct {
+	name            string
 	runner          wasi.Runner
 	decisionOnError authorizer.Decision
 }
@@ -66,19 +69,26 @@ func NewModule(config *ModuleConfig) (*Module, error) {
 		return nil, err
 	}
 
-	exec, err := wasi.NewWASIDefaultRunner(source, "authz", config.Settings)
+	runtime, err := wasi.NewRuntime(source)
 	if err != nil {
 		return nil, err
 	}
 
+	rawRunner := runtime.RawRunner("authz")
+	if config.Debug {
+		rawRunner = wasi.DebugRawRunner(rawRunner)
+	}
+
+	runner := wasi.NewEnvelopeRunner(rawRunner, config.Settings)
+
 	return &Module{
-		runner:          exec,
+		name:            config.Name,
+		runner:          runner,
 		decisionOnError: authorizer.DecisionNoOpinion,
 	}, nil
 }
 
-func (a *Module) Authorize(ctx context.Context, attr authorizer.Attributes) (decision authorizer.Decision, reason string, err error) {
-	// NOTE: implementation is based on webhook implementation
+func (m *Module) Authorize(ctx context.Context, attr authorizer.Attributes) (decision authorizer.Decision, reason string, err error) {
 	req := &authorizationv1.SubjectAccessReview{}
 	if user := attr.GetUser(); user != nil {
 		req.Spec = authorizationv1.SubjectAccessReviewSpec{
@@ -107,20 +117,19 @@ func (a *Module) Authorize(ctx context.Context, attr authorizer.Attributes) (dec
 	}
 
 	resp := &authorizationv1.SubjectAccessReview{}
-	err = a.runner.Run(ctx, req, resp)
+	err = m.runner.Run(ctx, req, resp)
 	if err != nil {
-		klog.Errorf("Failed to run wasm exec: %v", err)
-		return a.decisionOnError, "", err
+		klog.ErrorS(err, "failed to run wasm authorization module", "module_name", m.name)
+		return m.decisionOnError, "", err
 	}
 
 	if resp == nil {
 		klog.Errorf("response from wasm exec is nil")
-		return a.decisionOnError, "", err
+		return m.decisionOnError, "", err
 	}
 
 	switch {
 	case resp.Status.Denied && resp.Status.Allowed:
-		fmt.Println(1)
 		return authorizer.DecisionDeny, resp.Status.Reason, fmt.Errorf("wasm subject access review returned both allow and deny response")
 	case resp.Status.Denied:
 		return authorizer.DecisionDeny, resp.Status.Reason, nil

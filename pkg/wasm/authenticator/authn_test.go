@@ -27,7 +27,7 @@ func TestConfig(t *testing.T) {
     }
   ]
 }`
-	authenticator, err := NewAuthenticatorFromReader(bytes.NewBufferString(config))
+	authenticator, err := NewAuthenticatorFromReader(bytes.NewBufferString(config), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func newTestAuthenticator(t *testing.T) *Module {
 	config := &ModuleConfig{
 		Module: authnTestModuleFile,
 	}
-	authenticator, err := NewModuleFromConfig(config)
+	authenticator, err := NewModuleFromConfig(config, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
