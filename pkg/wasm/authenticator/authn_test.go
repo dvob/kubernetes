@@ -1,6 +1,7 @@
 package authenticator
 
 import (
+	"bytes"
 	"context"
 	"reflect"
 	"testing"
@@ -17,9 +18,43 @@ var (
 	testGroups = []string{"system:masters"}
 )
 
+func TestConfig(t *testing.T) {
+	config := `{
+  "modules": [
+    {
+      "module": "../testmodules/target/wasm32-wasi/debug/test_authn.wasm",
+      "debug": false
+    }
+  ]
+}`
+	authenticator, err := NewAuthenticatorFromReader(bytes.NewBufferString(config))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	resp, ok, err := authenticator.AuthenticateToken(ctx, testToken)
+
+	if !ok {
+		t.Fatalf("token '%s' should be authenticated", testToken)
+	}
+
+	if resp.User.GetName() != testUser {
+		t.Errorf("wrong username: want=%s, got=%s", testUser, resp.User.GetName())
+	}
+
+	if resp.User.GetUID() != testUID {
+		t.Errorf("wrong UID: want=%s, got=%s", testUID, resp.User.GetUID())
+	}
+
+	if !reflect.DeepEqual(resp.User.GetGroups(), testGroups) {
+		t.Errorf("wrong groups: want=%s, got=%s", testGroups, resp.User.GetGroups())
+	}
+}
+
 func newTestAuthenticator(t *testing.T) *Module {
 	config := &ModuleConfig{
-		File: authnTestModuleFile,
+		Module: authnTestModuleFile,
 	}
 	authenticator, err := NewModuleFromConfig(config)
 	if err != nil {

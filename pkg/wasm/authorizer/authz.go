@@ -51,7 +51,7 @@ func NewAuthorizerFormConfigFile(configFile string) (k8s.Authorizer, k8s.RuleRes
 }
 
 type ModuleConfig struct {
-	File     string      `json:"file"`
+	Module   string      `json:"module"`
 	Settings interface{} `json:"settings"`
 }
 
@@ -61,7 +61,7 @@ type Module struct {
 }
 
 func NewModule(config *ModuleConfig) (*Module, error) {
-	source, err := os.ReadFile(config.File)
+	source, err := os.ReadFile(config.Module)
 	if err != nil {
 		return nil, err
 	}

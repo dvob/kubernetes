@@ -14,7 +14,7 @@ const (
 
 func newTestAuthorizer(t *testing.T) *Module {
 	config := &ModuleConfig{
-		File: authzTestModuleFile,
+		Module: authzTestModuleFile,
 	}
 	authorizer, err := NewModule(config)
 	if err != nil {

@@ -46,16 +46,16 @@ import (
 
 // BuiltInAuthenticationOptions contains all build-in authentication options for API Server
 type BuiltInAuthenticationOptions struct {
-	APIAudiences             []string
-	WASMTokenAuthnConfigFile string
-	Anonymous                *AnonymousAuthenticationOptions
-	BootstrapToken           *BootstrapTokenAuthenticationOptions
-	ClientCert               *genericoptions.ClientCertAuthenticationOptions
-	OIDC                     *OIDCAuthenticationOptions
-	RequestHeader            *genericoptions.RequestHeaderAuthenticationOptions
-	ServiceAccounts          *ServiceAccountAuthenticationOptions
-	TokenFile                *TokenFileAuthenticationOptions
-	WebHook                  *WebHookAuthenticationOptions
+	APIAudiences    []string
+	WASMConfigFile  string
+	Anonymous       *AnonymousAuthenticationOptions
+	BootstrapToken  *BootstrapTokenAuthenticationOptions
+	ClientCert      *genericoptions.ClientCertAuthenticationOptions
+	OIDC            *OIDCAuthenticationOptions
+	RequestHeader   *genericoptions.RequestHeaderAuthenticationOptions
+	ServiceAccounts *ServiceAccountAuthenticationOptions
+	TokenFile       *TokenFileAuthenticationOptions
+	WebHook         *WebHookAuthenticationOptions
 
 	TokenSuccessCacheTTL time.Duration
 	TokenFailureCacheTTL time.Duration
@@ -244,7 +244,7 @@ func (o *BuiltInAuthenticationOptions) Validate() []error {
 
 // AddFlags returns flags of authentication for a API Server
 func (o *BuiltInAuthenticationOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.WASMTokenAuthnConfigFile, "wasm-auth-config", o.WASMTokenAuthnConfigFile, ""+
+	fs.StringVar(&o.WASMConfigFile, "authentication-wasm-config-file", o.WASMConfigFile, ""+
 		"Path to the WASM Authenticator configuration")
 
 	fs.StringSliceVar(&o.APIAudiences, "api-audiences", o.APIAudiences, ""+
@@ -454,7 +454,7 @@ func (o *BuiltInAuthenticationOptions) ToAuthenticationConfig() (kubeauthenticat
 		}
 	}
 
-	ret.WASMTokenAuthnConfigFile = o.WASMTokenAuthnConfigFile
+	ret.WASMConfigFile = o.WASMConfigFile
 
 	return ret, nil
 }

@@ -74,7 +74,7 @@ type Config struct {
 	// before we fail the webhook call in order to limit the fan out that ensues when the system is degraded.
 	WebhookRetryBackoff *wait.Backoff
 
-	WASMTokenAuthnConfigFile string
+	WASMConfigFile string
 
 	TokenSuccessCacheTTL time.Duration
 	TokenFailureCacheTTL time.Duration
@@ -188,8 +188,8 @@ func (config Config) New() (authenticator.Request, *spec.SecurityDefinitions, er
 
 		tokenAuthenticators = append(tokenAuthenticators, webhookTokenAuth)
 	}
-	if len(config.WASMTokenAuthnConfigFile) > 0 {
-		wasmAuth, err := wasm.NewAuthenticatorFromConfigFile(config.WASMTokenAuthnConfigFile)
+	if len(config.WASMConfigFile) > 0 {
+		wasmAuth, err := wasm.NewAuthenticatorFromConfigFile(config.WASMConfigFile, config.APIAudiences)
 		if err != nil {
 			return nil, nil, err
 		}
