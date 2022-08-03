@@ -35,6 +35,7 @@ import (
 type BuiltInAuthorizationOptions struct {
 	Modes                       []string
 	PolicyFile                  string
+	WASMConfigFile              string
 	WebhookConfigFile           string
 	WebhookVersion              string
 	WebhookCacheAuthorizedTTL   time.Duration
@@ -88,6 +89,10 @@ func (o *BuiltInAuthorizationOptions) Validate() []error {
 		allErrors = append(allErrors, fmt.Errorf("cannot specify --authorization-webhook-config-file without mode Webhook"))
 	}
 
+	if o.WASMConfigFile != "" && !modes.Has(authzmodes.ModeWASM) {
+		allErrors = append(allErrors, fmt.Errorf("cannot specify --authorization-wasm-config-file without mode WASM"))
+	}
+
 	if len(o.Modes) != len(modes.List()) {
 		allErrors = append(allErrors, fmt.Errorf("authorization-mode %q has mode specified more than once", o.Modes))
 	}
@@ -107,6 +112,9 @@ func (o *BuiltInAuthorizationOptions) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.PolicyFile, "authorization-policy-file", o.PolicyFile, ""+
 		"File with authorization policy in json line by line format, used with --authorization-mode=ABAC, on the secure port.")
+
+	fs.StringVar(&o.WASMConfigFile, "authorization-wasm-config-file", o.WASMConfigFile, ""+
+		"File with WASM module configuration")
 
 	fs.StringVar(&o.WebhookConfigFile, "authorization-webhook-config-file", o.WebhookConfigFile, ""+
 		"File with webhook configuration in kubeconfig format, used with --authorization-mode=Webhook. "+
@@ -129,6 +137,7 @@ func (o *BuiltInAuthorizationOptions) ToAuthorizationConfig(versionedInformerFac
 	return authorizer.Config{
 		AuthorizationModes:          o.Modes,
 		PolicyFile:                  o.PolicyFile,
+		WASMConfigFile:              o.WASMConfigFile,
 		WebhookConfigFile:           o.WebhookConfigFile,
 		WebhookVersion:              o.WebhookVersion,
 		WebhookCacheAuthorizedTTL:   o.WebhookCacheAuthorizedTTL,

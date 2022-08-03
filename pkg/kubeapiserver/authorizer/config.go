@@ -32,6 +32,7 @@ import (
 	"k8s.io/kubernetes/pkg/auth/authorizer/abac"
 	"k8s.io/kubernetes/pkg/auth/nodeidentifier"
 	"k8s.io/kubernetes/pkg/kubeapiserver/authorizer/modes"
+	wasm "k8s.io/kubernetes/pkg/wasm/authorizer"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/node"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac"
 	"k8s.io/kubernetes/plugin/pkg/auth/authorizer/rbac/bootstrappolicy"
@@ -45,6 +46,9 @@ type Config struct {
 
 	// Path to an ABAC policy file.
 	PolicyFile string
+
+	// config file for WASM authorization plugin.
+	WASMConfigFile string
 
 	// Options for ModeWebhook
 
@@ -139,6 +143,13 @@ func (config Config) New() (authorizer.Authorizer, authorizer.RuleResolver, erro
 			)
 			authorizers = append(authorizers, rbacAuthorizer)
 			ruleResolvers = append(ruleResolvers, rbacAuthorizer)
+		case modes.ModeWASM:
+			wasmAuthorizer, ruleResolver, err := wasm.NewAuthorizerFormConfigFile(config.WASMConfigFile)
+			if err != nil {
+				return nil, nil, err
+			}
+			authorizers = append(authorizers, wasmAuthorizer)
+			ruleResolvers = append(ruleResolvers, ruleResolver)
 		default:
 			return nil, nil, fmt.Errorf("unknown authorization mode %s specified", authorizationMode)
 		}

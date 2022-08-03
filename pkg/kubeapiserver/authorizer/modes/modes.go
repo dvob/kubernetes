@@ -31,6 +31,8 @@ const (
 	ModeRBAC string = "RBAC"
 	// ModeNode is an authorization mode that authorizes API requests made by kubelets.
 	ModeNode string = "Node"
+	// ModeWASM is an authorization mode that uses WASM modules to authorize requests
+	ModeWASM string = "WASM"
 )
 
 // AuthorizationModeChoices is the list of supported authorization modes

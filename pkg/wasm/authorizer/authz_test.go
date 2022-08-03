@@ -12,11 +12,11 @@ const (
 	authzTestModuleFile = "../testmodules/target/wasm32-wasi/debug/test_authz.wasm"
 )
 
-func newTestAuthorizer(t *testing.T) *Authorizer {
-	config := &AuthorizationModuleConfig{
+func newTestAuthorizer(t *testing.T) *Module {
+	config := &ModuleConfig{
 		File: authzTestModuleFile,
 	}
-	authorizer, err := NewAuthorizerWithConfig(config)
+	authorizer, err := NewModule(config)
 	if err != nil {
 		t.Fatal(err)
 	}

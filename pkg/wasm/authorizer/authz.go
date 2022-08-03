@@ -2,24 +2,65 @@ package authorizer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	k8s "k8s.io/apiserver/pkg/authorization/authorizer"
+	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
-var _ k8s.Authorizer = (*Authorizer)(nil)
+var _ k8s.Authorizer = (*Module)(nil)
 
-type Authorizer struct {
+type noRulesImpl struct{}
+
+type Config struct {
+	Modules []ModuleConfig `json:"modules"`
+}
+
+func NewAuthorizer(config *Config) (k8s.Authorizer, k8s.RuleResolver, error) {
+	authorizers := []k8s.Authorizer{}
+	ruleResolvers := []k8s.RuleResolver{}
+	for _, moduleConfig := range config.Modules {
+		module, err := NewModule(&moduleConfig)
+		if err != nil {
+			return nil, nil, err
+		}
+		authorizers = append(authorizers, module)
+		ruleResolvers = append(ruleResolvers, module)
+	}
+	return union.New(authorizers...), union.NewRuleResolvers(ruleResolvers...), nil
+}
+
+func NewAuthorizerFormConfigFile(configFile string) (k8s.Authorizer, k8s.RuleResolver, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil, nil, err
+	}
+	config := &Config{}
+	err = json.Unmarshal(data, config)
+	if err != nil {
+		return nil, nil, err
+	}
+	return NewAuthorizer(config)
+}
+
+type ModuleConfig struct {
+	File     string      `json:"file"`
+	Settings interface{} `json:"settings"`
+}
+
+type Module struct {
 	runner          wasi.Runner
 	decisionOnError authorizer.Decision
 }
 
-func NewAuthorizerWithConfig(config *AuthorizationModuleConfig) (*Authorizer, error) {
+func NewModule(config *ModuleConfig) (*Module, error) {
 	source, err := os.ReadFile(config.File)
 	if err != nil {
 		return nil, err
@@ -30,13 +71,13 @@ func NewAuthorizerWithConfig(config *AuthorizationModuleConfig) (*Authorizer, er
 		return nil, err
 	}
 
-	return &Authorizer{
+	return &Module{
 		runner:          exec,
 		decisionOnError: authorizer.DecisionNoOpinion,
 	}, nil
 }
 
-func (a *Authorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (decision authorizer.Decision, reason string, err error) {
+func (a *Module) Authorize(ctx context.Context, attr authorizer.Attributes) (decision authorizer.Decision, reason string, err error) {
 	// NOTE: implementation is based on webhook implementation
 	req := &authorizationv1.SubjectAccessReview{}
 	if user := attr.GetUser(); user != nil {
@@ -88,6 +129,15 @@ func (a *Authorizer) Authorize(ctx context.Context, attr authorizer.Attributes) 
 	default:
 		return authorizer.DecisionNoOpinion, resp.Status.Reason, nil
 	}
+}
+
+func (m *Module) RulesFor(_ user.Info, _ string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
+	var (
+		resourceRules    []authorizer.ResourceRuleInfo
+		nonResourceRules []authorizer.NonResourceRuleInfo
+	)
+	incomplete := true
+	return resourceRules, nonResourceRules, incomplete, fmt.Errorf("wasm authorizer does not support user rule resolution")
 }
 
 func convertToSARExtra(extra map[string][]string) map[string]authorizationv1.ExtraValue {
