@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -38,7 +39,15 @@ func NewAuthorizer(config *Config) (k8s.Authorizer, k8s.RuleResolver, error) {
 }
 
 func NewAuthorizerFormConfigFile(configFile string) (k8s.Authorizer, k8s.RuleResolver, error) {
-	data, err := os.ReadFile(configFile)
+	file, err := os.Open(configFile)
+	if err != nil {
+		return nil, nil, err
+	}
+	return NewAuthorizerFromReader(file)
+}
+
+func NewAuthorizerFromReader(configInput io.Reader) (k8s.Authorizer, k8s.RuleResolver, error) {
+	data, err := io.ReadAll(configInput)
 	if err != nil {
 		return nil, nil, err
 	}
