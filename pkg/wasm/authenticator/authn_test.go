@@ -23,10 +23,21 @@ func TestConfig(t *testing.T) {
   "modules": [
     {
       "module": "../testmodules/target/wasm32-wasi/debug/test_authn.wasm",
-      "debug": false
+      "debug": false,
+      "settings": {
+        "token": "magic-token",
+        "user": "magic-user",
+        "uid": "1",
+        "groups": ["mygroup1", "mygroup2"]
+      }
     }
   ]
 }`
+	testToken := "magic-token"
+	testUser := "magic-user"
+	testUID := "1"
+	testGroups := []string{"mygroup1", "mygroup2"}
+
 	authenticator, err := NewAuthenticatorFromReader(bytes.NewBufferString(config), nil)
 	if err != nil {
 		t.Fatal(err)

@@ -3,8 +3,17 @@ use k8s_openapi::api::authentication::v1::*;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
+struct Settings {
+    token: String,
+    uid: String,
+    user: String,
+    groups: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
 struct Request {
     request: TokenReview,
+    settings: Option<Settings>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -24,14 +33,20 @@ fn authn() {
     let mut response = TokenReview::default();
     let mut status = TokenReviewStatus::default();
 
-    if token == "my-test-token" {
+    // get settings or use default values
+    let settings = req.settings.unwrap_or(Settings{
+        token: "my-test-token".to_string(),
+        uid: "1337".to_string(),
+        user: "my-user".to_string(),
+        groups: vec!["system:masters".to_string()]
+    });
+
+    if token == settings.token {
         status.authenticated = Some(true);
         status.user = Some(UserInfo{
-            username: Some("my-user".to_string()),
-            uid: Some("1337".to_string()),
-            groups: Some(vec![
-                "system:masters".to_string(),
-            ]),
+            username: Some(settings.user),
+            uid: Some(settings.uid),
+            groups: Some(settings.groups),
             extra: None,
         });
     } else {
