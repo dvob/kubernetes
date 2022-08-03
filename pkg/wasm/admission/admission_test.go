@@ -21,6 +21,7 @@ const (
 	admissionTestModuleFile    = "../testmodules/target/wasm32-wasi/debug/test_admission.wasm"
 	admissionMutTestModuleFile = "../testmodules/target/wasm32-wasi/debug/test_admission_mut.wasm"
 	safeAnnotationsModule      = "../testmodules/kubewarden/safe-annotations_v0.2.0.wasm"
+	allowPrivilegeModule       = "../testmodules/kubewarden/allow-privilege-escalation-psp-policy_v0.1.11.wasm"
 )
 
 func newTestAdmissionController(t *testing.T) *AdmissionController {
@@ -129,7 +130,7 @@ func TestAdmissionMutating(t *testing.T) {
 	}
 }
 
-func TestKubewarden(t *testing.T) {
+func TestKubewardenValidate(t *testing.T) {
 	moduleSource, err := os.ReadFile(safeAnnotationsModule)
 	if err != nil {
 		t.Fatal(err)
@@ -196,5 +197,89 @@ func TestKubewarden(t *testing.T) {
 	expectedErrText := ""
 	if !strings.Contains(err.Error(), expectedErrText) {
 		t.Fatalf("text '%s' expected in error. got=%s", expectedErrText, err.Error())
+	}
+}
+
+func TestKubewardenMutate(t *testing.T) {
+	moduleSource, err := os.ReadFile(allowPrivilegeModule)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mod, err := wasi.NewKubewardenModule(moduleSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	settings := struct {
+		DefaultAllowPrivilegeEscalation bool `json:"default_allow_privilege_escalation"`
+	}{
+		DefaultAllowPrivilegeEscalation: false,
+	}
+
+	err = mod.ValidateSettings(context.Background(), settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fn := func(ctx context.Context, ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
+		return mod.Validate(ctx, ar, settings)
+	}
+
+	rules := []v1.RuleWithOperations{
+		{
+			Operations: []v1.OperationType{"CREATE"},
+			Rule: v1.Rule{
+				APIGroups:   []string{"*"},
+				APIVersions: []string{"*"},
+				Resources:   []string{"*"},
+			},
+		},
+	}
+
+	admissionController := NewAdmissionControllerWithFn(fn, true, rules)
+
+	ctx := context.Background()
+
+	s := runtime.NewScheme() // admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
+	corev1.AddToScheme(s)
+	objInterface := admission.NewObjectInterfacesFromScheme(s)
+	ns := "default"
+	podName := "not-allowed"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: ns,
+			Annotations: map[string]string{
+				"invalid-annotation": "bla",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "test",
+				},
+			},
+		},
+	}
+	attr := admission.NewAttributesRecord(pod, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+
+	err = admissionController.Admit(ctx, attr, objInterface)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sc := pod.Spec.Containers[0].SecurityContext
+
+	if sc == nil {
+		t.Fatal("security context got not set in pod")
+	}
+	if sc.AllowPrivilegeEscalation == nil {
+		t.Fatal("allow privilege escalation not set in security context")
+	}
+
+	if *sc.AllowPrivilegeEscalation != false {
+		t.Fatal("allowPrivilegeEscalation is not false")
 	}
 }
