@@ -2,34 +2,61 @@ package authenticator
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 
 	authv1 "k8s.io/api/authentication/v1"
 	authn "k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/token/union"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
-var _ authn.Token = (*Authenticator)(nil)
+var _ authn.Token = (*Module)(nil)
 
-type AuthenticationConfig struct {
-	Modules []AuthenticationModuleConfig `json:"modules"`
+type Config struct {
+	Modules []ModuleConfig `json:"modules"`
 }
 
-type AuthenticationModuleConfig struct {
+func NewAuthenticatorFromConfigFile(configFile string) (authn.Token, error) {
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil, err
+	}
+	config := &Config{}
+	err = json.Unmarshal(data, config)
+	if err != nil {
+		return nil, err
+	}
+	return NewAuthenticator(config)
+}
+
+func NewAuthenticator(config *Config) (authn.Token, error) {
+	authenticators := []authn.Token{}
+	for _, moduleConfig := range config.Modules {
+		m, err := NewModuleFromConfig(&moduleConfig)
+		if err != nil {
+			return nil, err
+		}
+		authenticators = append(authenticators, m)
+	}
+	return union.New(authenticators...), nil
+}
+
+type ModuleConfig struct {
 	File      string `json:"file"`
 	Settings  interface{}
 	Audiences []string
 }
 
-type Authenticator struct {
+type Module struct {
 	runner       wasi.Runner
 	implicitAuds authn.Audiences
 	settings     interface{}
 }
 
-func NewAuthenticatorWithConfig(config *AuthenticationModuleConfig) (*Authenticator, error) {
+func NewModuleFromConfig(config *ModuleConfig) (*Module, error) {
 	source, err := os.ReadFile(config.File)
 	if err != nil {
 		return nil, err
@@ -40,14 +67,14 @@ func NewAuthenticatorWithConfig(config *AuthenticationModuleConfig) (*Authentica
 		return nil, err
 	}
 
-	return &Authenticator{
+	return &Module{
 		runner:       runner,
 		settings:     config.Settings,
 		implicitAuds: config.Audiences,
 	}, nil
 }
 
-func (a *Authenticator) AuthenticateToken(ctx context.Context, token string) (*authn.Response, bool, error) {
+func (a *Module) AuthenticateToken(ctx context.Context, token string) (*authn.Response, bool, error) {
 	wantAuds, checkAuds := authn.AudiencesFrom(ctx)
 
 	req := &authv1.TokenReview{

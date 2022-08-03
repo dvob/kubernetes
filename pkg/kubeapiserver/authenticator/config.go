@@ -39,7 +39,7 @@ import (
 	"k8s.io/apiserver/plugin/pkg/authenticator/token/oidc"
 	"k8s.io/apiserver/plugin/pkg/authenticator/token/webhook"
 	"k8s.io/kube-openapi/pkg/validation/spec"
-	"k8s.io/kubernetes/pkg/wasm"
+	wasm "k8s.io/kubernetes/pkg/wasm/authenticator"
 
 	// Initialize all known client auth plugins.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -188,18 +188,13 @@ func (config Config) New() (authenticator.Request, *spec.SecurityDefinitions, er
 
 		tokenAuthenticators = append(tokenAuthenticators, webhookTokenAuth)
 	}
-
 	if len(config.WASMTokenAuthnConfigFile) > 0 {
-		wasmAuthConfig := &wasm.AuthenticationModuleConfig{
-			File: config.WASMTokenAuthnConfigFile,
-		}
-		wasmAuth, err := wasm.NewAuthenticatorWithConfig(wasmAuthConfig)
+		wasmAuth, err := wasm.NewAuthenticatorFromConfigFile(config.WASMTokenAuthnConfigFile)
 		if err != nil {
 			return nil, nil, err
 		}
 		tokenAuthenticators = append(tokenAuthenticators, wasmAuth)
 	}
-
 	if len(tokenAuthenticators) > 0 {
 		// Union the token authenticators
 		tokenAuth := tokenunion.New(tokenAuthenticators...)

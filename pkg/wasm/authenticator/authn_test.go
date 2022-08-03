@@ -17,11 +17,11 @@ var (
 	testGroups = []string{"system:masters"}
 )
 
-func newTestAuthenticator(t *testing.T) *Authenticator {
-	config := &AuthenticationModuleConfig{
+func newTestAuthenticator(t *testing.T) *Module {
+	config := &ModuleConfig{
 		File: authnTestModuleFile,
 	}
-	authenticator, err := NewAuthenticatorWithConfig(config)
+	authenticator, err := NewModuleFromConfig(config)
 	if err != nil {
 		t.Fatal(err)
 	}
