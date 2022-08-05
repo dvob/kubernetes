@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
@@ -57,16 +58,26 @@ func NewWASIModule(config *ModuleConfig) (*Module, error) {
 	if err != nil {
 		return nil, err
 	}
-	var runner wasi.Runner
-	if config.Mutating {
-		runner, err = wasi.NewWASIDefaultRunner(source, "mutate", config.Settings)
-	} else {
-		runner, err = wasi.NewWASIDefaultRunner(source, "validate", config.Settings)
-	}
-
+	runtime, err := wasi.NewRuntime(source)
 	if err != nil {
 		return nil, err
 	}
+
+	fnName := "validate"
+	if config.Mutating {
+		fnName = "mutate"
+	}
+
+	if !runtime.HasFunction(fnName) {
+		return nil, fmt.Errorf("missing function '%s' in module '%s'", fnName, config.Name)
+	}
+	rawRunner := runtime.RawRunner(fnName)
+
+	if config.Debug {
+		rawRunner = wasi.DebugRawRunner(rawRunner)
+	}
+
+	runner := wasi.NewEnvelopeRunner(rawRunner, config.Settings)
 
 	reviewFn := func(ctx context.Context, in *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error) {
 		out := &admissionv1.AdmissionReview{}
@@ -90,7 +101,7 @@ func NewKubewardenModule(config *ModuleConfig) (*Module, error) {
 		return nil, err
 	}
 
-	mod, err := wasi.NewKubewardenModule(moduleSource)
+	mod, err := wasi.NewKubewardenModule(moduleSource, config.Debug)
 	if err != nil {
 		return nil, err
 	}
@@ -133,9 +144,11 @@ func (m *Module) Validate(ctx context.Context, attr k8s.Attributes, o k8s.Object
 	}
 
 	if !m.matchRequest(attr) {
-		fmt.Println("skip")
 		return nil
 	}
+
+	start := time.Now()
+	defer func() { klog.InfoS("run validation", "duration", time.Now().Sub(start)) }()
 
 	uid := types.UID(uuid.NewUUID())
 	req, err := m.toAdmissionReview(uid, attr, o)
@@ -166,15 +179,22 @@ func (m *Module) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInt
 	}
 
 	if !m.matchRequest(attr) {
-		klog.Info("skip")
 		return nil
 	}
+
+	start := time.Now()
+	defer func() { klog.InfoS("run mutation", "duration", time.Now().Sub(start)) }()
 
 	uid := types.UID(uuid.NewUUID())
 	req, err := m.toAdmissionReview(uid, attr, o)
 	if err != nil {
 		return err
 	}
+
+	// DEBUG
+	typeOrig := reflect.TypeOf(attr.GetObject()).Elem()
+	typeVersioned := reflect.TypeOf(req.Request.Object.Object).Elem()
+	klog.InfoS("TYPE INFO", "orig", typeOrig.PkgPath()+"."+typeOrig.Name(), "versioned", typeVersioned.PkgPath()+"."+typeVersioned.Name())
 
 	resp, err := m.review(ctx, req)
 	if err != nil {

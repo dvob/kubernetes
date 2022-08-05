@@ -16,7 +16,8 @@ const (
 type ModuleConfig struct {
 	Name     string                  `json:"name"`
 	Type     ModuleType              `json:"type"`
-	Module   string                  `json:"file"`
+	Module   string                  `json:"module"`
+	Debug    bool                    `json:"debug"`
 	Mutating bool                    `json:"mutating"`
 	Rules    []v1.RuleWithOperations `json:"rules"`
 	Settings interface{}             `json:"settings"`

@@ -23,7 +23,7 @@ func TestKubewarden(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mod, err := NewKubewardenModule(moduleSource)
+	mod, err := NewKubewardenModule(moduleSource, false)
 	if err != nil {
 		t.Fatal(err)
 	}

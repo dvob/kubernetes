@@ -7,4 +7,5 @@ members = [
     "test-admission",
     "test-admission-mut",
     "test-wapc",
+    "test-kubewarden-mut",
 ]

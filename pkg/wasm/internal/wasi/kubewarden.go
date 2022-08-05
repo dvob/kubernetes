@@ -54,16 +54,24 @@ type KubewardenModule struct {
 	validateSettings Runner
 }
 
-func NewKubewardenModule(moduleSource []byte) (*KubewardenModule, error) {
+func NewKubewardenModule(moduleSource []byte, debug bool) (*KubewardenModule, error) {
 	runtime, err := NewWAPCRuntime(moduleSource)
 	if err != nil {
 		return nil, err
 	}
 
+	validateRawRunner := runtime.RawRunner("validate")
+	validateSettingsRawRunner := runtime.RawRunner("validate_settings")
+
+	if debug {
+		validateRawRunner = DebugRawRunner(validateRawRunner)
+		validateSettingsRawRunner = DebugRawRunner(validateSettingsRawRunner)
+	}
+
 	return &KubewardenModule{
 		runtime:          runtime,
-		validateSettings: NewJSONRunner(runtime.RawRunner("validate_settings")),
-		validate:         NewJSONRunner(runtime.RawRunner("validate")),
+		validateSettings: NewJSONRunner(validateSettingsRawRunner),
+		validate:         NewJSONRunner(validateRawRunner),
 	}, nil
 }
 

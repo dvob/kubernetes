@@ -12,6 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/kubernetes/pkg/apis/core"
+
+	// adds core scheme and conversions to scheme
+	_ "k8s.io/kubernetes/pkg/apis/core/install"
 )
 
 const (
@@ -21,7 +25,15 @@ const (
 	allowPrivilegeModule       = "../testmodules/kubewarden/allow-privilege-escalation-psp-policy_v0.1.11.wasm"
 )
 
-func newTestAdmissionController(t *testing.T) *Module {
+var (
+	scheme *runtime.Scheme = runtime.NewScheme()
+)
+
+func init() {
+	corev1.AddToScheme(scheme)
+}
+
+func TestWASIValidate(t *testing.T) {
 	config := &ModuleConfig{
 		Type:     ModuleTypeWASI,
 		Module:   admissionTestModuleFile,
@@ -41,28 +53,24 @@ func newTestAdmissionController(t *testing.T) *Module {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return admissionController
-}
 
-func TestAdmissionReject(t *testing.T) {
-	admissionController := newTestAdmissionController(t)
 	ctx := context.Background()
 
-	s := runtime.NewScheme() // admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-	corev1.AddToScheme(s)
-	objInterface := admission.NewObjectInterfacesFromScheme(s)
+	//s := runtime.NewScheme()
+	objInterface := admission.NewObjectInterfacesFromScheme(scheme)
 	ns := "default"
 	podName := "not-allowed"
-	pod := &corev1.Pod{
+	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
 			Namespace: ns,
 		},
-		Spec: corev1.PodSpec{},
+		Spec: core.PodSpec{},
 	}
-	attr := admission.NewAttributesRecord(pod, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+	var obj runtime.Object = pod
+	attr := admission.NewAttributesRecord(obj, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
 
-	err := admissionController.Validate(ctx, attr, objInterface)
+	err = admissionController.Validate(ctx, attr, objInterface)
 	if err == nil {
 		t.Fatalf("request should fail")
 	}
@@ -71,10 +79,11 @@ func TestAdmissionReject(t *testing.T) {
 	}
 }
 
-func newTestAdmissionControllerMut(t *testing.T) *Module {
+func TestWASIMutate(t *testing.T) {
 	config := &ModuleConfig{
 		Module:   admissionMutTestModuleFile,
 		Type:     ModuleTypeWASI,
+		Debug:    false,
 		Mutating: true,
 		Rules: []v1.RuleWithOperations{
 			{
@@ -91,34 +100,107 @@ func newTestAdmissionControllerMut(t *testing.T) *Module {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return admissionController
-}
 
-func TestAdmissionMutating(t *testing.T) {
-	admissionController := newTestAdmissionControllerMut(t)
 	ctx := context.Background()
 
-	s := runtime.NewScheme() // admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-	corev1.AddToScheme(s)
-	objInterface := admission.NewObjectInterfacesFromScheme(s)
+	//s := runtime.NewScheme()
+	// corev1.AddToScheme(s)
+	// core.AddToScheme(s)
+	objInterface := admission.NewObjectInterfacesFromScheme(scheme)
 	ns := "default"
 	podName := "foo"
-	pod := &corev1.Pod{
+	var obj runtime.Object = &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
 			Namespace: ns,
 		},
-		Spec: corev1.PodSpec{},
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{
+					Name: "bla",
+				},
+			},
+		},
 	}
-	attr := admission.NewAttributesRecord(pod, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+	attr := admission.NewAttributesRecord(obj, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
 
-	err := admissionController.Admit(ctx, attr, objInterface)
+	err = admissionController.Admit(ctx, attr, objInterface)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	expectedAnnotationKey := "puzzle.ch/test-annotation"
 	expectedAnnotationValue := "foo"
+
+	pod, ok := attr.GetObject().(*core.Pod)
+	if !ok {
+		t.Fatalf("obj is not pod but %T", pod)
+	}
+
+	val, ok := pod.GetAnnotations()[expectedAnnotationKey]
+	if !ok {
+		t.Fatalf("annotation '%s' missing on pod", expectedAnnotationKey)
+	}
+	if val != expectedAnnotationValue {
+		t.Fatalf("annotation '%s' has wrong value: want=%s, got=%s", expectedAnnotationKey, expectedAnnotationValue, val)
+	}
+}
+
+func TestKubewardenAnnotationMutate(t *testing.T) {
+	config := &ModuleConfig{
+		Module:   "../testmodules/target/wasm32-wasi/debug/test_kubewarden_mut.wasm",
+		Type:     ModuleTypeKubewarden,
+		Mutating: true,
+		Debug:    false,
+		Settings: struct{}{},
+		Rules: []v1.RuleWithOperations{
+			{
+				Operations: []v1.OperationType{"CREATE"},
+				Rule: v1.Rule{
+					APIGroups:   []string{"*"},
+					APIVersions: []string{"*"},
+					Resources:   []string{"*"},
+				},
+			},
+		},
+	}
+	admissionController, err := NewModule(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+
+	objInterface := admission.NewObjectInterfacesFromScheme(scheme)
+	ns := "default"
+	podName := "foo"
+	var obj runtime.Object = &core.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: ns,
+		},
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{
+					Name: "bla",
+				},
+			},
+		},
+	}
+	attr := admission.NewAttributesRecord(obj, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+
+	err = admissionController.Admit(ctx, attr, objInterface)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedAnnotationKey := "puzzle.ch/test-annotation"
+	expectedAnnotationValue := "foo"
+
+	pod, ok := attr.GetObject().(*core.Pod)
+	if !ok {
+		t.Fatalf("obj is not pod but %T", pod)
+	}
 
 	val, ok := pod.GetAnnotations()[expectedAnnotationKey]
 	if !ok {
@@ -161,12 +243,11 @@ func TestKubewardenValidate(t *testing.T) {
 
 	ctx := context.Background()
 
-	s := runtime.NewScheme() // admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-	corev1.AddToScheme(s)
-	objInterface := admission.NewObjectInterfacesFromScheme(s)
+	//s := runtime.NewScheme()
+	objInterface := admission.NewObjectInterfacesFromScheme(scheme)
 	ns := "default"
 	podName := "not-allowed"
-	pod := &corev1.Pod{
+	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
 			Namespace: ns,
@@ -174,16 +255,17 @@ func TestKubewardenValidate(t *testing.T) {
 				"invalid-annotation": "bla",
 			},
 		},
-		Spec: corev1.PodSpec{},
+		Spec: core.PodSpec{},
 	}
-	attr := admission.NewAttributesRecord(pod, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+	var obj runtime.Object = pod
+	attr := admission.NewAttributesRecord(obj, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
 
 	err = admissionController.Validate(ctx, attr, objInterface)
 	if err == nil {
 		t.Fatalf("request should fail")
 	}
 
-	expectedErrText := ""
+	expectedErrText := "\"safe-annotations\" denied the request"
 	if !strings.Contains(err.Error(), expectedErrText) {
 		t.Fatalf("text '%s' expected in error. got=%s", expectedErrText, err.Error())
 	}
@@ -191,10 +273,11 @@ func TestKubewardenValidate(t *testing.T) {
 
 func TestKubewardenMutate(t *testing.T) {
 	moduleConfig := &ModuleConfig{
-		Name:     "safe-annotations",
+		Name:     "privilege-escalation",
 		Type:     "kubewarden",
 		Module:   allowPrivilegeModule,
 		Mutating: true,
+		Debug:    false,
 		Settings: struct {
 			DefaultAllowPrivilegeEscalation bool `json:"default_allow_privilege_escalation"`
 		}{
@@ -218,28 +301,28 @@ func TestKubewardenMutate(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	s := runtime.NewScheme() // admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
-	corev1.AddToScheme(s)
-	objInterface := admission.NewObjectInterfacesFromScheme(s)
+	objInterface := admission.NewObjectInterfacesFromScheme(scheme)
 	ns := "default"
 	podName := "not-allowed"
-	pod := &corev1.Pod{
+	pod := &core.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,
 			Namespace: ns,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
+		Spec: core.PodSpec{
+			NodeName: "bla",
+			Containers: []core.Container{
 				{
 					Name: "test",
 				},
 			},
 		},
 	}
-	attr := admission.NewAttributesRecord(pod, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
+
+	var obj runtime.Object = pod
+	attr := admission.NewAttributesRecord(obj, nil, schema.GroupVersionKind{"", "v1", "Pod"}, ns, podName, schema.GroupVersionResource{"", "v1", "pods"}, "", admission.Create, &metav1.CreateOptions{}, false, &user.DefaultInfo{})
 
 	err = admissionController.Admit(ctx, attr, objInterface)
-
 	if err != nil {
 		t.Fatal(err)
 	}
