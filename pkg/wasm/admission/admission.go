@@ -150,11 +150,13 @@ func (m *Module) Validate(ctx context.Context, attr k8s.Attributes, o k8s.Object
 	start := time.Now()
 	defer func() { klog.InfoS("run validation", "duration", time.Now().Sub(start)) }()
 
-	uid := types.UID(uuid.NewUUID())
-	req, err := m.toAdmissionReview(uid, attr, o)
+	versionedAttr, err := generic.NewVersionedAttributes(attr, attr.GetKind(), o)
 	if err != nil {
 		return err
 	}
+
+	uid := types.UID(uuid.NewUUID())
+	req := m.toAdmissionReview(uid, versionedAttr, o)
 
 	resp, err := m.review(ctx, req)
 	if err != nil {
@@ -185,11 +187,13 @@ func (m *Module) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInt
 	start := time.Now()
 	defer func() { klog.InfoS("run mutation", "duration", time.Now().Sub(start)) }()
 
-	uid := types.UID(uuid.NewUUID())
-	req, err := m.toAdmissionReview(uid, attr, o)
+	versionedAttr, err := generic.NewVersionedAttributes(attr, attr.GetKind(), o)
 	if err != nil {
 		return err
 	}
+
+	uid := types.UID(uuid.NewUUID())
+	req := m.toAdmissionReview(uid, versionedAttr, o)
 
 	// DEBUG
 	typeOrig := reflect.TypeOf(attr.GetObject()).Elem()
@@ -219,32 +223,26 @@ func (m *Module) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInt
 	}
 
 	// reset obj
-	v := reflect.ValueOf(attr.GetObject())
+	v := reflect.ValueOf(versionedAttr.VersionedObject)
 	v.Elem().Set(reflect.Zero(v.Elem().Type()))
 
-	err = json.Unmarshal(result.Patch, attr.GetObject())
+	err = json.Unmarshal(result.Patch, versionedAttr.VersionedObject)
 	if err != nil {
 		return fmt.Errorf("failed to apply changes: %w", err)
 	}
 
-	return nil
+	return o.GetObjectConvertor().Convert(versionedAttr.VersionedObject, attr.GetObject(), nil)
 }
 
-func (m *Module) toAdmissionReview(uid types.UID, attr k8s.Attributes, o k8s.ObjectInterfaces) (*admissionv1.AdmissionReview, error) {
-	versionedAttr, err := generic.NewVersionedAttributes(attr, attr.GetKind(), o)
-	if err != nil {
-		return nil, err
-	}
-
+func (m *Module) toAdmissionReview(uid types.UID, versionedAttr *generic.VersionedAttributes, o k8s.ObjectInterfaces) *admissionv1.AdmissionReview {
 	invocation := &generic.WebhookInvocation{
 		Webhook:     nil,
-		Resource:    attr.GetResource(),
-		Subresource: attr.GetSubresource(),
-		Kind:        attr.GetKind(),
+		Resource:    versionedAttr.GetResource(),
+		Subresource: versionedAttr.GetSubresource(),
+		Kind:        versionedAttr.GetKind(),
 	}
 
-	req := request.CreateV1AdmissionReview(uid, versionedAttr, invocation)
-	return req, nil
+	return request.CreateV1AdmissionReview(uid, versionedAttr, invocation)
 }
 
 func (m *Module) matchRequest(attr k8s.Attributes) bool {
