@@ -133,6 +133,10 @@ func (m *Module) Handles(operation k8s.Operation) bool {
 }
 
 func (m *Module) Validate(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
+	return errWithName(m.name, m.validate(ctx, attr, o))
+}
+
+func (m *Module) validate(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
 	if m.Mutating {
 		return nil
 	}

@@ -1,0 +1,13 @@
+[package]
+name = "test-admission-mut-helper"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+k8s_wasi = { git = "https://github.com/dvob/k8s-wasi-rs", rev = "2190754" }
+k8s-openapi = { version = "0.15.0", features = ["v1_24"] }
+serde = { version = "1.0.139", features = ["derive"] }
+serde_json = "1.0.82"

@@ -6,6 +6,7 @@ members = [
     "test-authz",
     "test-admission",
     "test-admission-mut",
+    "test-admission-mut-helper",
     "test-wapc",
     "test-kubewarden-mut",
 ]
