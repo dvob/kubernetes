@@ -17,7 +17,7 @@ struct Response {
 }
 
 #[no_mangle]
-fn mutate() {
+fn validate() {
     let req: Request = serde_json::from_reader(std::io::stdin()).unwrap();
     let req = req
         .request
@@ -53,3 +53,4 @@ fn mutate() {
     serde_json::to_writer(std::io::stdout(), &resp).unwrap();
     std::io::stdout().flush().unwrap();
 }
+

@@ -64,10 +64,6 @@ func NewWASIModule(config *ModuleConfig) (*Module, error) {
 	}
 
 	fnName := "validate"
-	if config.Mutating {
-		fnName = "mutate"
-	}
-
 	if !runtime.HasFunction(fnName) {
 		return nil, fmt.Errorf("missing function '%s' in module '%s'", fnName, config.Name)
 	}
