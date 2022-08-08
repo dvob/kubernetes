@@ -46,19 +46,7 @@ func newWASITokenReviewFuncFromConfig(config *wasm.ModuleConfig) (TokenReviewFun
 	return newWASITokenReviewFunc(config.Name, config.Settings, rawRunner), nil
 }
 
-func NewAuthenticator(config *wasm.Config, auds authn.Audiences) (authn.Token, error) {
-	authenticators := []authn.Token{}
-	for i, moduleConfig := range config.Modules {
-		m, err := NewAuthenticatorFromConfig(&moduleConfig, auds)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize WASM authenticator module %d: %w", i, err)
-		}
-		authenticators = append(authenticators, m)
-	}
-	return union.New(authenticators...), nil
-}
-
-func NewAuthenticatorFromConfig(config *wasm.ModuleConfig, auds authn.Audiences) (*Authenticator, error) {
+func NewAuthenticator(config *wasm.ModuleConfig, auds authn.Audiences) (*Authenticator, error) {
 	reviewFunc, err := newWASITokenReviewFuncFromConfig(config)
 	if err != nil {
 		return nil, err
@@ -67,6 +55,18 @@ func NewAuthenticatorFromConfig(config *wasm.ModuleConfig, auds authn.Audiences)
 		review:       reviewFunc,
 		implicitAuds: auds,
 	}, nil
+}
+
+func New(config *wasm.Config, auds authn.Audiences) (authn.Token, error) {
+	authenticators := []authn.Token{}
+	for i, moduleConfig := range config.Modules {
+		m, err := NewAuthenticator(&moduleConfig, auds)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize WASM authenticator module %d: %w", i, err)
+		}
+		authenticators = append(authenticators, m)
+	}
+	return union.New(authenticators...), nil
 }
 
 func NewAuthenticatorFromConfigFile(configFile string, auds authn.Audiences) (authn.Token, error) {
@@ -90,5 +90,5 @@ func NewAuthenticatorFromReader(configInput io.Reader, auds authn.Audiences) (au
 	if err != nil {
 		return nil, fmt.Errorf("invalid module configuration: %w", err)
 	}
-	return NewAuthenticator(config, auds)
+	return New(config, auds)
 }
