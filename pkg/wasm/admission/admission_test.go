@@ -52,7 +52,7 @@ func TestWASIValidate(t *testing.T) {
 			},
 		},
 	}
-	admissionController, err := NewModule(config)
+	admissionController, err := NewController(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestWASIMutate(t *testing.T) {
 			},
 		},
 	}
-	admissionController, err := NewModule(config)
+	admissionController, err := NewController(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestKubewardenAnnotationMutate(t *testing.T) {
 			},
 		},
 	}
-	admissionController, err := NewModule(config)
+	admissionController, err := NewController(config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestKubewardenValidate(t *testing.T) {
 		},
 	}
 
-	admissionController, err := NewModule(moduleConfig)
+	admissionController, err := NewController(moduleConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +306,7 @@ func TestKubewardenMutate(t *testing.T) {
 		},
 	}
 
-	admissionController, err := NewModule(moduleConfig)
+	admissionController, err := NewController(moduleConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

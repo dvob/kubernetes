@@ -6,8 +6,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func toRejectErr(moduleName string, status *metav1.Status) error {
-	deniedBy := fmt.Sprintf("admission WASM module %q denied the request", moduleName)
+func toRejectErr(status *metav1.Status) error {
+	deniedBy := fmt.Sprintf("admission denied the request")
 
 	switch {
 	case status == nil:
