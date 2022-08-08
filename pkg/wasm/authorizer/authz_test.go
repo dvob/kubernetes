@@ -120,11 +120,11 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-func newTestAuthorizer(t *testing.T) *Module {
+func newTestAuthorizer(t *testing.T) *Authorizer {
 	config := &wasm.ModuleConfig{
 		Module: authzTestModuleFile,
 	}
-	authorizer, err := NewModule(config)
+	authorizer, err := NewAuthorizer(config)
 	if err != nil {
 		t.Fatal(err)
 	}

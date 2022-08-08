@@ -3,93 +3,23 @@ package authorizer
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	k8s "k8s.io/apiserver/pkg/authorization/authorizer"
-	"k8s.io/apiserver/pkg/authorization/union"
-	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/wasm"
-	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
-var _ k8s.Authorizer = (*Module)(nil)
+type SubjectAccessReviewFunc func(context.Context, *authorizationv1.SubjectAccessReview) (*authorizationv1.SubjectAccessReview, error)
 
-type noRulesImpl struct{}
+var _ k8s.Authorizer = (*Authorizer)(nil)
 
-func NewAuthorizer(config *wasm.Config) (k8s.Authorizer, k8s.RuleResolver, error) {
-	authorizers := []k8s.Authorizer{}
-	ruleResolvers := []k8s.RuleResolver{}
-	for _, moduleConfig := range config.Modules {
-		module, err := NewModule(&moduleConfig)
-		if err != nil {
-			return nil, nil, err
-		}
-		authorizers = append(authorizers, module)
-		ruleResolvers = append(ruleResolvers, module)
-	}
-	return union.New(authorizers...), union.NewRuleResolvers(ruleResolvers...), nil
-}
-
-func NewAuthorizerFormConfigFile(configFile string) (k8s.Authorizer, k8s.RuleResolver, error) {
-	file, err := os.Open(configFile)
-	if err != nil {
-		return nil, nil, err
-	}
-	return NewAuthorizerFromReader(file)
-}
-
-func NewAuthorizerFromReader(configInput io.Reader) (k8s.Authorizer, k8s.RuleResolver, error) {
-	config := &wasm.Config{}
-	decoder := yaml.NewYAMLOrJSONDecoder(configInput, 4096)
-	err := decoder.Decode(config)
-	if err != nil {
-		return nil, nil, err
-	}
-	config.Default()
-	err = config.Validate()
-	if err != nil {
-		return nil, nil, fmt.Errorf("invalid module configuration: %w", err)
-	}
-	return NewAuthorizer(config)
-}
-
-type Module struct {
-	name            string
-	runner          wasi.Runner
+type Authorizer struct {
+	review          SubjectAccessReviewFunc
 	decisionOnError authorizer.Decision
 }
 
-func NewModule(config *wasm.ModuleConfig) (*Module, error) {
-	source, err := os.ReadFile(config.Module)
-	if err != nil {
-		return nil, err
-	}
-
-	runtime, err := wasi.NewRuntime(source)
-	if err != nil {
-		return nil, err
-	}
-
-	rawRunner := runtime.RawRunner("authz")
-	if config.Debug {
-		rawRunner = wasi.DebugRawRunner(rawRunner)
-	}
-
-	runner := wasi.NewEnvelopeRunner(rawRunner, config.Settings)
-
-	return &Module{
-		name:            config.Name,
-		runner:          runner,
-		decisionOnError: authorizer.DecisionNoOpinion,
-	}, nil
-}
-
-func (m *Module) Authorize(ctx context.Context, attr authorizer.Attributes) (decision authorizer.Decision, reason string, err error) {
+func (m *Authorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (decision authorizer.Decision, reason string, err error) {
 	req := &authorizationv1.SubjectAccessReview{}
 	if user := attr.GetUser(); user != nil {
 		req.Spec = authorizationv1.SubjectAccessReviewSpec{
@@ -117,21 +47,18 @@ func (m *Module) Authorize(ctx context.Context, attr authorizer.Attributes) (dec
 		}
 	}
 
-	resp := &authorizationv1.SubjectAccessReview{}
-	err = m.runner.Run(ctx, req, resp)
+	resp, err := m.review(ctx, req)
 	if err != nil {
-		klog.ErrorS(err, "failed to run wasm authorization module", "module_name", m.name)
 		return m.decisionOnError, "", err
 	}
 
 	if resp == nil {
-		klog.Errorf("response from wasm exec is nil")
-		return m.decisionOnError, "", err
+		return m.decisionOnError, "", fmt.Errorf("review func did not return response")
 	}
 
 	switch {
 	case resp.Status.Denied && resp.Status.Allowed:
-		return authorizer.DecisionDeny, resp.Status.Reason, fmt.Errorf("wasm subject access review returned both allow and deny response")
+		return authorizer.DecisionDeny, resp.Status.Reason, fmt.Errorf("subject access review returned both allow and deny response")
 	case resp.Status.Denied:
 		return authorizer.DecisionDeny, resp.Status.Reason, nil
 	case resp.Status.Allowed:
@@ -141,13 +68,13 @@ func (m *Module) Authorize(ctx context.Context, attr authorizer.Attributes) (dec
 	}
 }
 
-func (m *Module) RulesFor(_ user.Info, _ string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
+func (m *Authorizer) RulesFor(_ user.Info, _ string) ([]authorizer.ResourceRuleInfo, []authorizer.NonResourceRuleInfo, bool, error) {
 	var (
 		resourceRules    []authorizer.ResourceRuleInfo
 		nonResourceRules []authorizer.NonResourceRuleInfo
 	)
 	incomplete := true
-	return resourceRules, nonResourceRules, incomplete, fmt.Errorf("wasm authorizer does not support user rule resolution")
+	return resourceRules, nonResourceRules, incomplete, fmt.Errorf("authorizer does not support user rule resolution")
 }
 
 func convertToSARExtra(extra map[string][]string) map[string]authorizationv1.ExtraValue {
