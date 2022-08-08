@@ -7,6 +7,7 @@ import (
 
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	"k8s.io/kubernetes/pkg/wasm"
 )
 
 const (
@@ -92,7 +93,7 @@ func TestConfig(t *testing.T) {
 }
 
 func newTestAuthorizer(t *testing.T) *Module {
-	config := &ModuleConfig{
+	config := &wasm.ModuleConfig{
 		Module: authzTestModuleFile,
 	}
 	authorizer, err := NewModule(config)

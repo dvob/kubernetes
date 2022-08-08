@@ -13,14 +13,11 @@ import (
 	"k8s.io/apiserver/pkg/authentication/token/union"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/wasm"
 	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
 var _ authn.Token = (*Module)(nil)
-
-type Config struct {
-	Modules []ModuleConfig `json:"modules"`
-}
 
 func NewAuthenticatorFromConfigFile(configFile string, auds authn.Audiences) (authn.Token, error) {
 	file, err := os.Open(configFile)
@@ -35,7 +32,7 @@ func NewAuthenticatorFromReader(configInput io.Reader, auds authn.Audiences) (au
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WASM authenticator configuration: %w", err)
 	}
-	config := &Config{}
+	config := &wasm.Config{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WASM authenticator configuration: %w", err)
@@ -43,7 +40,7 @@ func NewAuthenticatorFromReader(configInput io.Reader, auds authn.Audiences) (au
 	return NewAuthenticator(config, auds)
 }
 
-func NewAuthenticator(config *Config, auds authn.Audiences) (authn.Token, error) {
+func NewAuthenticator(config *wasm.Config, auds authn.Audiences) (authn.Token, error) {
 	authenticators := []authn.Token{}
 	for i, moduleConfig := range config.Modules {
 		m, err := NewModuleFromConfig(&moduleConfig, auds)
@@ -55,13 +52,6 @@ func NewAuthenticator(config *Config, auds authn.Audiences) (authn.Token, error)
 	return union.New(authenticators...), nil
 }
 
-type ModuleConfig struct {
-	Name     string      `json:"name,omitempty"`
-	Module   string      `json:"module"`
-	Settings interface{} `json:"settings,omitempty"`
-	Debug    bool        `json:"debug,omitempty"`
-}
-
 type Module struct {
 	name         string
 	runner       wasi.Runner
@@ -69,7 +59,7 @@ type Module struct {
 	settings     interface{}
 }
 
-func NewModuleFromConfig(config *ModuleConfig, auds authn.Audiences) (*Module, error) {
+func NewModuleFromConfig(config *wasm.ModuleConfig, auds authn.Audiences) (*Module, error) {
 	source, err := os.ReadFile(config.Module)
 	if err != nil {
 		return nil, err

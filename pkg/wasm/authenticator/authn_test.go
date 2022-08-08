@@ -5,6 +5,8 @@ import (
 	"context"
 	"reflect"
 	"testing"
+
+	"k8s.io/kubernetes/pkg/wasm"
 )
 
 const (
@@ -64,7 +66,7 @@ func TestConfig(t *testing.T) {
 }
 
 func newTestAuthenticator(t *testing.T) *Module {
-	config := &ModuleConfig{
+	config := &wasm.ModuleConfig{
 		Module: authnTestModuleFile,
 	}
 	authenticator, err := NewModuleFromConfig(config, nil)

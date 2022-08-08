@@ -13,6 +13,7 @@ import (
 	k8s "k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/klog/v2"
+	"k8s.io/kubernetes/pkg/wasm"
 	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
@@ -20,11 +21,7 @@ var _ k8s.Authorizer = (*Module)(nil)
 
 type noRulesImpl struct{}
 
-type Config struct {
-	Modules []ModuleConfig `json:"modules"`
-}
-
-func NewAuthorizer(config *Config) (k8s.Authorizer, k8s.RuleResolver, error) {
+func NewAuthorizer(config *wasm.Config) (k8s.Authorizer, k8s.RuleResolver, error) {
 	authorizers := []k8s.Authorizer{}
 	ruleResolvers := []k8s.RuleResolver{}
 	for _, moduleConfig := range config.Modules {
@@ -51,19 +48,12 @@ func NewAuthorizerFromReader(configInput io.Reader) (k8s.Authorizer, k8s.RuleRes
 	if err != nil {
 		return nil, nil, err
 	}
-	config := &Config{}
+	config := &wasm.Config{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		return nil, nil, err
 	}
 	return NewAuthorizer(config)
-}
-
-type ModuleConfig struct {
-	Name     string      `json:"name,omitempty"`
-	Module   string      `json:"module"`
-	Settings interface{} `json:"settings,omitempty"`
-	Debug    bool        `json:"debug,omitempty"`
 }
 
 type Module struct {
@@ -72,7 +62,7 @@ type Module struct {
 	decisionOnError authorizer.Decision
 }
 
-func NewModule(config *ModuleConfig) (*Module, error) {
+func NewModule(config *wasm.ModuleConfig) (*Module, error) {
 	source, err := os.ReadFile(config.Module)
 	if err != nil {
 		return nil, err

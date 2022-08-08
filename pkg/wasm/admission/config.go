@@ -1,10 +1,9 @@
 package admission
 
-import v1 "k8s.io/api/admissionregistration/v1"
-
-type Config struct {
-	Modules []ModuleConfig `json:"modules"`
-}
+import (
+	v1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/kubernetes/pkg/wasm"
+)
 
 type ModuleType string
 
@@ -13,12 +12,13 @@ const (
 	ModuleTypeKubewarden = "kubewarden"
 )
 
+type Config struct {
+	Modules []ModuleConfig `json:"modules"`
+}
+
 type ModuleConfig struct {
-	Name     string                  `json:"name"`
+	wasm.ModuleConfig
 	Type     ModuleType              `json:"type"`
-	Module   string                  `json:"module"`
-	Debug    bool                    `json:"debug"`
 	Mutating bool                    `json:"mutating"`
 	Rules    []v1.RuleWithOperations `json:"rules"`
-	Settings interface{}             `json:"settings"`
 }

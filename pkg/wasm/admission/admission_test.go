@@ -13,6 +13,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/kubernetes/pkg/apis/core"
+	"k8s.io/kubernetes/pkg/wasm"
 
 	// adds core scheme and conversions to scheme
 	_ "k8s.io/kubernetes/pkg/apis/core/install"
@@ -35,8 +36,10 @@ func init() {
 
 func TestWASIValidate(t *testing.T) {
 	config := &ModuleConfig{
+		ModuleConfig: wasm.ModuleConfig{
+			Module: admissionTestModuleFile,
+		},
 		Type:     ModuleTypeWASI,
-		Module:   admissionTestModuleFile,
 		Mutating: false,
 		Rules: []v1.RuleWithOperations{
 			{
@@ -81,9 +84,11 @@ func TestWASIValidate(t *testing.T) {
 
 func TestWASIMutate(t *testing.T) {
 	config := &ModuleConfig{
-		Module:   admissionMutTestModuleFile,
+		ModuleConfig: wasm.ModuleConfig{
+			Module: admissionMutTestModuleFile,
+			Debug:  false,
+		},
 		Type:     ModuleTypeWASI,
-		Debug:    false,
 		Mutating: true,
 		Rules: []v1.RuleWithOperations{
 			{
@@ -148,11 +153,13 @@ func TestWASIMutate(t *testing.T) {
 
 func TestKubewardenAnnotationMutate(t *testing.T) {
 	config := &ModuleConfig{
-		Module:   "../testmodules/target/wasm32-wasi/debug/test_kubewarden_mut.wasm",
+		ModuleConfig: wasm.ModuleConfig{
+			Module:   "../testmodules/target/wasm32-wasi/debug/test_kubewarden_mut.wasm",
+			Debug:    false,
+			Settings: struct{}{},
+		},
 		Type:     ModuleTypeKubewarden,
 		Mutating: true,
-		Debug:    false,
-		Settings: struct{}{},
 		Rules: []v1.RuleWithOperations{
 			{
 				Operations: []v1.OperationType{"CREATE"},
@@ -213,17 +220,19 @@ func TestKubewardenAnnotationMutate(t *testing.T) {
 
 func TestKubewardenValidate(t *testing.T) {
 	moduleConfig := &ModuleConfig{
-		Name:     "safe-annotations",
-		Type:     "kubewarden",
-		Module:   safeAnnotationsModule,
-		Mutating: false,
-		Settings: struct {
-			DeniedAnnotations []string `json:"denied_annotations"`
-		}{
-			DeniedAnnotations: []string{
-				"invalid-annotation",
+		ModuleConfig: wasm.ModuleConfig{
+			Name:   "safe-annotations",
+			Module: safeAnnotationsModule,
+			Settings: struct {
+				DeniedAnnotations []string `json:"denied_annotations"`
+			}{
+				DeniedAnnotations: []string{
+					"invalid-annotation",
+				},
 			},
 		},
+		Type:     "kubewarden",
+		Mutating: false,
 		Rules: []v1.RuleWithOperations{
 			{
 				Operations: []v1.OperationType{"CREATE"},
@@ -273,16 +282,18 @@ func TestKubewardenValidate(t *testing.T) {
 
 func TestKubewardenMutate(t *testing.T) {
 	moduleConfig := &ModuleConfig{
-		Name:     "privilege-escalation",
-		Type:     "kubewarden",
-		Module:   allowPrivilegeModule,
-		Mutating: true,
-		Debug:    false,
-		Settings: struct {
-			DefaultAllowPrivilegeEscalation bool `json:"default_allow_privilege_escalation"`
-		}{
-			DefaultAllowPrivilegeEscalation: false,
+		ModuleConfig: wasm.ModuleConfig{
+			Name:   "privilege-escalation",
+			Module: allowPrivilegeModule,
+			Debug:  false,
+			Settings: struct {
+				DefaultAllowPrivilegeEscalation bool `json:"default_allow_privilege_escalation"`
+			}{
+				DefaultAllowPrivilegeEscalation: false,
+			},
 		},
+		Type:     "kubewarden",
+		Mutating: true,
 		Rules: []v1.RuleWithOperations{
 			{
 				Operations: []v1.OperationType{"CREATE"},
