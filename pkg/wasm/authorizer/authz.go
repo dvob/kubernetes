@@ -2,12 +2,12 @@ package authorizer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	authorizationv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	k8s "k8s.io/apiserver/pkg/authorization/authorizer"
@@ -44,14 +44,16 @@ func NewAuthorizerFormConfigFile(configFile string) (k8s.Authorizer, k8s.RuleRes
 }
 
 func NewAuthorizerFromReader(configInput io.Reader) (k8s.Authorizer, k8s.RuleResolver, error) {
-	data, err := io.ReadAll(configInput)
+	config := &wasm.Config{}
+	decoder := yaml.NewYAMLOrJSONDecoder(configInput, 4096)
+	err := decoder.Decode(config)
 	if err != nil {
 		return nil, nil, err
 	}
-	config := &wasm.Config{}
-	err = json.Unmarshal(data, config)
+	config.Default()
+	err = config.Validate()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("invalid module configuration: %w", err)
 	}
 	return NewAuthorizer(config)
 }

@@ -2,9 +2,10 @@ package admission
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"io"
 
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -19,14 +20,16 @@ func Register(plugins *admission.Plugins) {
 }
 
 func NewControllerFromReader(configInput io.Reader) (*Controller, error) {
-	data, err := io.ReadAll(configInput)
+	config := &Config{}
+	decoder := yaml.NewYAMLOrJSONDecoder(configInput, 4096)
+	err := decoder.Decode(config)
 	if err != nil {
 		return nil, err
 	}
-	config := &Config{}
-	err = json.Unmarshal(data, config)
+	config.Default()
+	err = config.Validate()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid module configuration: %w", err)
 	}
 	return NewController(config)
 }

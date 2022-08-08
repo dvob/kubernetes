@@ -2,13 +2,13 @@ package authenticator
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 
 	authv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	authn "k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/token/union"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -28,14 +28,16 @@ func NewAuthenticatorFromConfigFile(configFile string, auds authn.Audiences) (au
 }
 
 func NewAuthenticatorFromReader(configInput io.Reader, auds authn.Audiences) (authn.Token, error) {
-	data, err := io.ReadAll(configInput)
+	config := &wasm.Config{}
+	decoder := yaml.NewYAMLOrJSONDecoder(configInput, 4096)
+	err := decoder.Decode(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read WASM authenticator configuration: %w", err)
 	}
-	config := &wasm.Config{}
-	err = json.Unmarshal(data, config)
+	config.Default()
+	err = config.Validate()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read WASM authenticator configuration: %w", err)
+		return nil, fmt.Errorf("invalid module configuration: %w", err)
 	}
 	return NewAuthenticator(config, auds)
 }
@@ -97,8 +99,8 @@ func (m *Module) AuthenticateToken(ctx context.Context, token string) (*authn.Re
 	resp := &authv1.TokenReview{}
 	err := m.runner.Run(ctx, req, resp)
 	if err != nil {
-		klog.ErrorS(err, "failed to run wasm authentication module", "module_name", m.name)
-		return nil, false, err
+		//klog.ErrorS(err, "failed to run wasm authentication module", "module_name", m.name)
+		return nil, false, fmt.Errorf("failed to run wasm authenticatoin module '%s': %w", m.name, err)
 	}
 
 	tr := resp

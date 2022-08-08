@@ -14,6 +14,34 @@ const (
 	authzTestModuleFile = "../testmodules/target/wasm32-wasi/debug/test_authz.wasm"
 )
 
+func TestConfigYAML(t *testing.T) {
+	config := `
+modules: 
+- module: ../testmodules/target/wasm32-wasi/debug/test_authz.wasm
+  debug: false
+  settings:
+    allow_all: true
+`
+	sut, _, err := NewAuthorizerFromReader(bytes.NewBufferString(config))
+	if err != nil {
+		t.Fatal(err)
+	}
+	attrs := &authorizer.AttributesRecord{
+		ResourceRequest: true,
+		User:            &user.DefaultInfo{Groups: []string{"foo-group"}},
+		Name:            "foo",
+	}
+
+	ctx := context.Background()
+	decision, _, err := sut.Authorize(ctx, attrs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision != authorizer.DecisionAllow {
+		t.Fatal("requests should be allowed")
+	}
+}
+
 func TestConfig(t *testing.T) {
 	config := `{
   "modules": [

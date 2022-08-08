@@ -57,6 +57,9 @@ func (jr *JSONRunner) Run(ctx context.Context, in interface{}, out interface{}) 
 	}
 
 	resp, err := jr.rawRunner.Run(ctx, req)
+	if err != nil {
+		return err
+	}
 	return json.Unmarshal(resp, out)
 }
 

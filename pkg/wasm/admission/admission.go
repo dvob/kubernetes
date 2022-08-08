@@ -26,9 +26,7 @@ var _ k8s.ValidationInterface = (*Module)(nil)
 type AdmissionReviewFunc func(context.Context, *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error)
 
 type Module struct {
-	// Name of the module. Used in error and log messages to identify the module.
-	// TODO: wrap all errors and add module name for easier debugging
-	Name     string
+	name     string
 	review   AdmissionReviewFunc
 	Mutating bool
 	Rules    []v1.RuleWithOperations
@@ -83,7 +81,7 @@ func NewWASIModule(config *ModuleConfig) (*Module, error) {
 	}
 
 	return &Module{
-		Name:     config.Name,
+		name:     config.Name,
 		review:   reviewFn,
 		Mutating: config.Mutating,
 		Rules:    config.Rules,
@@ -111,7 +109,7 @@ func NewKubewardenModule(config *ModuleConfig) (*Module, error) {
 		return mod.Validate(ctx, ar, config.Settings)
 	}
 	return &Module{
-		Name:     config.Name,
+		name:     config.Name,
 		review:   reviewFn,
 		Mutating: config.Mutating,
 		Rules:    config.Rules,
@@ -168,10 +166,14 @@ func (m *Module) Validate(ctx context.Context, attr k8s.Attributes, o k8s.Object
 		return nil
 	}
 
-	return toRejectErr(m.Name, result.Result)
+	return toRejectErr(m.name, result.Result)
 }
 
 func (m *Module) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
+	return errWithName(m.name, m.admit(ctx, attr, o))
+}
+
+func (m *Module) admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInterfaces) (err error) {
 	if !m.Mutating {
 		return nil
 	}
@@ -207,7 +209,7 @@ func (m *Module) Admit(ctx context.Context, attr k8s.Attributes, o k8s.ObjectInt
 	}
 
 	if !result.Allowed {
-		return toRejectErr(m.Name, result.Result)
+		return toRejectErr(m.name, result.Result)
 	}
 
 	if result.PatchType != "Full" {
@@ -248,4 +250,11 @@ func (m *Module) matchRequest(attr k8s.Attributes) bool {
 		}
 	}
 	return false
+}
+
+func errWithName(name string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("module=%s, err=%w", name, err)
 }
