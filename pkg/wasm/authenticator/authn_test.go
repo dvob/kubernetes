@@ -108,11 +108,11 @@ func TestConfig(t *testing.T) {
 	}
 }
 
-func newTestAuthenticator(t *testing.T) *Module {
+func newTestAuthenticator(t *testing.T) *Authenticator {
 	config := &wasm.ModuleConfig{
 		Module: authnTestModuleFile,
 	}
-	authenticator, err := NewModuleFromConfig(config, nil)
+	authenticator, err := NewAuthenticatorFromConfig(config, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

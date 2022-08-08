@@ -3,90 +3,23 @@ package authenticator
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io"
-	"os"
 
 	authv1 "k8s.io/api/authentication/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	authn "k8s.io/apiserver/pkg/authentication/authenticator"
-	"k8s.io/apiserver/pkg/authentication/token/union"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/wasm"
-	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
-var _ authn.Token = (*Module)(nil)
+type TokenReviewFunc func(context.Context, *authv1.TokenReview) (*authv1.TokenReview, error)
 
-func NewAuthenticatorFromConfigFile(configFile string, auds authn.Audiences) (authn.Token, error) {
-	file, err := os.Open(configFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open WASM authenticator configuratio: %w", err)
-	}
-	return NewAuthenticatorFromReader(file, auds)
-}
+var _ authn.Token = (*Authenticator)(nil)
 
-func NewAuthenticatorFromReader(configInput io.Reader, auds authn.Audiences) (authn.Token, error) {
-	config := &wasm.Config{}
-	decoder := yaml.NewYAMLOrJSONDecoder(configInput, 4096)
-	err := decoder.Decode(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read WASM authenticator configuration: %w", err)
-	}
-	config.Default()
-	err = config.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("invalid module configuration: %w", err)
-	}
-	return NewAuthenticator(config, auds)
-}
-
-func NewAuthenticator(config *wasm.Config, auds authn.Audiences) (authn.Token, error) {
-	authenticators := []authn.Token{}
-	for i, moduleConfig := range config.Modules {
-		m, err := NewModuleFromConfig(&moduleConfig, auds)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize WASM authenticator module %d: %w", i, err)
-		}
-		authenticators = append(authenticators, m)
-	}
-	return union.New(authenticators...), nil
-}
-
-type Module struct {
-	name         string
-	runner       wasi.Runner
+type Authenticator struct {
+	review       TokenReviewFunc
 	implicitAuds authn.Audiences
-	settings     interface{}
 }
 
-func NewModuleFromConfig(config *wasm.ModuleConfig, auds authn.Audiences) (*Module, error) {
-	source, err := os.ReadFile(config.Module)
-	if err != nil {
-		return nil, err
-	}
-
-	runtime, err := wasi.NewRuntime(source)
-	if err != nil {
-		return nil, err
-	}
-
-	rawRunner := runtime.RawRunner("authn")
-	if config.Debug {
-		rawRunner = wasi.DebugRawRunner(rawRunner)
-	}
-
-	runner := wasi.NewEnvelopeRunner(rawRunner, config.Settings)
-	return &Module{
-		name:         config.Name,
-		runner:       runner,
-		settings:     config.Settings,
-		implicitAuds: auds,
-	}, nil
-}
-
-func (m *Module) AuthenticateToken(ctx context.Context, token string) (*authn.Response, bool, error) {
+func (m *Authenticator) AuthenticateToken(ctx context.Context, token string) (*authn.Response, bool, error) {
 	wantAuds, checkAuds := authn.AudiencesFrom(ctx)
 
 	req := &authv1.TokenReview{
@@ -96,11 +29,10 @@ func (m *Module) AuthenticateToken(ctx context.Context, token string) (*authn.Re
 		},
 	}
 
-	resp := &authv1.TokenReview{}
-	err := m.runner.Run(ctx, req, resp)
+	resp, err := m.review(ctx, req)
 	if err != nil {
-		//klog.ErrorS(err, "failed to run wasm authentication module", "module_name", m.name)
-		return nil, false, fmt.Errorf("failed to run wasm authenticatoin module '%s': %w", m.name, err)
+		klog.ErrorS(err, "failed to run authentication")
+		return nil, false, err
 	}
 
 	tr := resp
