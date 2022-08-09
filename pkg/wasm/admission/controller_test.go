@@ -82,7 +82,7 @@ modules:
 - module: ../testmodules/target/wasm32-wasi/debug/test_admission_mut_helper.wasm
   name: add-annotation-a
   type: wasi
-  debug: true
+  debug: false
   mutating: true
   settings:
     annotations:
@@ -95,7 +95,7 @@ modules:
 - module: ../testmodules/target/wasm32-wasi/debug/test_admission_mut_helper.wasm
   name: add-annotation-b
   type: wasi
-  debug: true
+  debug: false
   mutating: true
   settings:
     annotations:
@@ -132,8 +132,6 @@ modules:
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	t.Log(pod.GetAnnotations())
 
 	expectedAnnotations := []string{"annotation-a", "annotation-b"}
 

@@ -4,19 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
-	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apiserver/pkg/admission"
 	k8s "k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/request"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/rules"
-	"k8s.io/klog/v2"
 )
+
+// PluginName indicates the name of the admission plugin.
+const PluginName = "WASM"
+
+// Register registers a plugin
+func Register(plugins *admission.Plugins) {
+	plugins.Register(PluginName, func(config io.Reader) (admission.Interface, error) {
+		return NewControllerFromReader(config)
+	})
+}
 
 type AdmissionReviewFunc func(context.Context, *admissionv1.AdmissionReview) (*admissionv1.AdmissionReview, error)
 
@@ -52,9 +62,6 @@ func (c *Controller) Validate(ctx context.Context, attr k8s.Attributes, o k8s.Ob
 		return nil
 	}
 
-	start := time.Now()
-	defer func() { klog.InfoS("run validation", "duration", time.Now().Sub(start)) }()
-
 	versionedAttr, err := generic.NewVersionedAttributes(attr, attr.GetKind(), o)
 	if err != nil {
 		return err
@@ -88,9 +95,6 @@ func (c *Controller) Admit(ctx context.Context, attr k8s.Attributes, o k8s.Objec
 	if !c.matchRequest(attr) {
 		return nil
 	}
-
-	start := time.Now()
-	defer func() { klog.InfoS("run mutation", "duration", time.Now().Sub(start)) }()
 
 	versionedAttr, err := generic.NewVersionedAttributes(attr, attr.GetKind(), o)
 	if err != nil {

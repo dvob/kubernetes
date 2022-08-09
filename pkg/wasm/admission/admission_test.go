@@ -52,6 +52,7 @@ func TestWASIValidate(t *testing.T) {
 			},
 		},
 	}
+	config.Default()
 	admissionController, err := NewController(config)
 	if err != nil {
 		t.Fatal(err)
@@ -101,6 +102,7 @@ func TestWASIMutate(t *testing.T) {
 			},
 		},
 	}
+	config.Default()
 	admissionController, err := NewController(config)
 	if err != nil {
 		t.Fatal(err)
@@ -171,6 +173,7 @@ func TestKubewardenAnnotationMutate(t *testing.T) {
 			},
 		},
 	}
+	config.Default()
 	admissionController, err := NewController(config)
 	if err != nil {
 		t.Fatal(err)
@@ -244,7 +247,7 @@ func TestKubewardenValidate(t *testing.T) {
 			},
 		},
 	}
-
+	moduleConfig.Default()
 	admissionController, err := NewController(moduleConfig)
 	if err != nil {
 		t.Fatal(err)
@@ -274,7 +277,7 @@ func TestKubewardenValidate(t *testing.T) {
 		t.Fatalf("request should fail")
 	}
 
-	expectedErrText := "\"safe-annotations\" denied the request"
+	expectedErrText := "invalid-annotation"
 	if !strings.Contains(err.Error(), expectedErrText) {
 		t.Fatalf("text '%s' expected in error. got=%s", expectedErrText, err.Error())
 	}
@@ -305,7 +308,7 @@ func TestKubewardenMutate(t *testing.T) {
 			},
 		},
 	}
-
+	moduleConfig.Default()
 	admissionController, err := NewController(moduleConfig)
 	if err != nil {
 		t.Fatal(err)
