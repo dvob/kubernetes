@@ -1,4 +1,4 @@
-package wasi
+package wasm
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	wapcTestModuleFile = "../../testmodules/target/wasm32-wasi/debug/test_wapc.wasm"
+	wapcTestModuleFile = "./testmodules/target/wasm32-wasi/debug/test_wapc.wasm"
 )
 
 func newWAPCRuntime(t *testing.T) *WAPCRuntime {

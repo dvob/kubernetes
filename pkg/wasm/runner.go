@@ -1,4 +1,4 @@
-package wasi
+package wasm
 
 import (
 	"context"

@@ -10,13 +10,13 @@ import (
 	"k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog/v2"
-	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
+	"k8s.io/kubernetes/pkg/wasm"
 )
 
 // newWASIAdmissionReviewFunc returns a AdmissionReviewFunc which performs the proper
 // encoding and decoding of AdmissionReview and settings to a RawRunner.
-func newWASIAdmissionReviewFunc(settings interface{}, rawRunner wasi.RawRunner) AdmissionReviewFunc {
-	runner := wasi.NewEnvelopeRunner(rawRunner, settings)
+func newWASIAdmissionReviewFunc(settings interface{}, rawRunner wasm.RawRunner) AdmissionReviewFunc {
+	runner := wasm.NewEnvelopeRunner(rawRunner, settings)
 	return func(ctx context.Context, ar *v1.AdmissionReview) (*v1.AdmissionReview, error) {
 		resp := &v1.AdmissionReview{}
 		err := runner.Run(ctx, ar, resp)
@@ -35,7 +35,7 @@ func newWASIAdmissionReviewFuncFromConfig(config *ModuleConfig) (AdmissionReview
 		return nil, err
 	}
 
-	runtime, err := wasi.NewRuntime(source)
+	runtime, err := wasm.NewRuntime(source)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func newWASIAdmissionReviewFuncFromConfig(config *ModuleConfig) (AdmissionReview
 
 	rawRunner := runtime.RawRunner("validate")
 	if config.Debug {
-		rawRunner = wasi.DebugRawRunner(rawRunner)
+		rawRunner = wasm.DebugRawRunner(rawRunner)
 	}
 	return newWASIAdmissionReviewFunc(config.Settings, rawRunner), nil
 }
@@ -60,7 +60,7 @@ func newKubewardenAdmissionReviewFuncFromConfig(config *ModuleConfig) (Admission
 		return nil, err
 	}
 
-	mod, err := wasi.NewKubewardenModule(moduleSource, config.Debug)
+	mod, err := wasm.NewKubewardenModule(moduleSource, config.Debug)
 	if err != nil {
 		return nil, err
 	}

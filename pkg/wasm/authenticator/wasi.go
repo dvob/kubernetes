@@ -11,13 +11,12 @@ import (
 	authn "k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/token/union"
 	"k8s.io/kubernetes/pkg/wasm"
-	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
 // newWASITokenReviewFunc returns a TokenReviewFunc which performs the proper
 // encoding and decoding of TokenReview and settings to a RawRunner.
-func newWASITokenReviewFunc(name string, settings interface{}, rawRunner wasi.RawRunner) TokenReviewFunc {
-	runner := wasi.NewEnvelopeRunner(rawRunner, settings)
+func newWASITokenReviewFunc(name string, settings interface{}, rawRunner wasm.RawRunner) TokenReviewFunc {
+	runner := wasm.NewEnvelopeRunner(rawRunner, settings)
 	return func(ctx context.Context, tr *authv1.TokenReview) (*authv1.TokenReview, error) {
 		resp := &authv1.TokenReview{}
 		err := runner.Run(ctx, tr, resp)
@@ -34,14 +33,14 @@ func newWASITokenReviewFuncFromConfig(config *wasm.ModuleConfig) (TokenReviewFun
 		return nil, err
 	}
 
-	runtime, err := wasi.NewRuntime(source)
+	runtime, err := wasm.NewRuntime(source)
 	if err != nil {
 		return nil, err
 	}
 
 	rawRunner := runtime.RawRunner("authn")
 	if config.Debug {
-		rawRunner = wasi.DebugRawRunner(rawRunner)
+		rawRunner = wasm.DebugRawRunner(rawRunner)
 	}
 	return newWASITokenReviewFunc(config.Name, config.Settings, rawRunner), nil
 }

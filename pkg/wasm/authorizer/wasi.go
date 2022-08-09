@@ -12,13 +12,12 @@ import (
 	k8s "k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/union"
 	"k8s.io/kubernetes/pkg/wasm"
-	"k8s.io/kubernetes/pkg/wasm/internal/wasi"
 )
 
 // newWASISubjectAccessReviewFunc returns a SubjectAccessReviewFunc which performs the proper
 // encoding and decoding of the SubjectAccessReview and settings to a RawRunner.
-func newWASISubjectAccessReviewFunc(name string, settings interface{}, rawRunner wasi.RawRunner) SubjectAccessReviewFunc {
-	runner := wasi.NewEnvelopeRunner(rawRunner, settings)
+func newWASISubjectAccessReviewFunc(name string, settings interface{}, rawRunner wasm.RawRunner) SubjectAccessReviewFunc {
+	runner := wasm.NewEnvelopeRunner(rawRunner, settings)
 	return func(ctx context.Context, tr *v1.SubjectAccessReview) (*v1.SubjectAccessReview, error) {
 		resp := &v1.SubjectAccessReview{}
 		err := runner.Run(ctx, tr, resp)
@@ -35,14 +34,14 @@ func newWASISubjectAccessReviewFuncFromConfig(config *wasm.ModuleConfig) (Subjec
 		return nil, err
 	}
 
-	runtime, err := wasi.NewRuntime(source)
+	runtime, err := wasm.NewRuntime(source)
 	if err != nil {
 		return nil, err
 	}
 
 	rawRunner := runtime.RawRunner("authz")
 	if config.Debug {
-		rawRunner = wasi.DebugRawRunner(rawRunner)
+		rawRunner = wasm.DebugRawRunner(rawRunner)
 	}
 	return newWASISubjectAccessReviewFunc(config.Name, config.Settings, rawRunner), nil
 }

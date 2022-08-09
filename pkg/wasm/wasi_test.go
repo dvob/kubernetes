@@ -1,4 +1,4 @@
-package wasi
+package wasm
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	wasiTestModuleFile = "../../testmodules/target/wasm32-wasi/debug/test_wasi.wasm"
+	wasiTestModuleFile = "./testmodules/target/wasm32-wasi/debug/test_wasi.wasm"
 	// the function my_function writes the following outputs
 	expectedStdout = "stdout output\n"
 	expectedStderr = "stderr output\n"
