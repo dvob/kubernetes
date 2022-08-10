@@ -36,6 +36,7 @@ import (
 	tokenunion "k8s.io/apiserver/pkg/authentication/token/union"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
+	"k8s.io/apiserver/plugin/pkg/authenticator/token/magic"
 	"k8s.io/apiserver/plugin/pkg/authenticator/token/oidc"
 	"k8s.io/apiserver/plugin/pkg/authenticator/token/webhook"
 	"k8s.io/kube-openapi/pkg/validation/spec"
@@ -50,6 +51,7 @@ import (
 type Config struct {
 	Anonymous      bool
 	BootstrapToken bool
+	MagicAuth      bool
 
 	TokenAuthFile               string
 	OIDCIssuerURL               string
@@ -184,6 +186,10 @@ func (config Config) New() (authenticator.Request, *spec.SecurityDefinitions, er
 		}
 
 		tokenAuthenticators = append(tokenAuthenticators, webhookTokenAuth)
+	}
+
+	if config.MagicAuth {
+		tokenAuthenticators = append(tokenAuthenticators, magic.NewMagicAuthenticator())
 	}
 
 	if len(tokenAuthenticators) > 0 {

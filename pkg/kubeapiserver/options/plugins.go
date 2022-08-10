@@ -34,6 +34,7 @@ import (
 	"k8s.io/kubernetes/plugin/pkg/admission/gc"
 	"k8s.io/kubernetes/plugin/pkg/admission/imagepolicy"
 	"k8s.io/kubernetes/plugin/pkg/admission/limitranger"
+	"k8s.io/kubernetes/plugin/pkg/admission/magic"
 	"k8s.io/kubernetes/plugin/pkg/admission/namespace/autoprovision"
 	"k8s.io/kubernetes/plugin/pkg/admission/namespace/exists"
 	"k8s.io/kubernetes/plugin/pkg/admission/network/defaultingressclass"
@@ -102,6 +103,7 @@ var AllOrderedPlugins = []string{
 	validatingwebhook.PluginName, // ValidatingAdmissionWebhook
 	resourcequota.PluginName,     // ResourceQuota
 	deny.PluginName,              // AlwaysDeny
+	magic.PluginName,             // MagicAdmission
 }
 
 // RegisterAllAdmissionPlugins registers all admission plugins.
@@ -139,6 +141,7 @@ func RegisterAllAdmissionPlugins(plugins *admission.Plugins) {
 	certapproval.Register(plugins)
 	certsigning.Register(plugins)
 	certsubjectrestriction.Register(plugins)
+	magic.Register(plugins)
 }
 
 // DefaultOffAdmissionPlugins get admission plugins off by default for kube-apiserver.
